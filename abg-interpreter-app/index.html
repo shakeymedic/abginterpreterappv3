@@ -107,7 +107,7 @@
                              <div class="sm:col-span-2"><label for="clinicalHistory" class="text-sm font-medium text-gray-text">Clinical History</label><textarea id="clinicalHistory" rows="3" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 78 y/o female with COPD..."></textarea></div>
                         </div>
 
-                        <div class="pt-4"><button id="analyzeBtn" @click="handleAction(mode)" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
+                        <div class="pt-4"><button id="analyzeBtn" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
                     </div>
                 </div>
             </div>
@@ -141,7 +141,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
+        // All event listeners and functions are defined inside the 'alpine:init' event
+        // to ensure AlpineJS is loaded and ready.
         document.addEventListener('alpine:init', () => {
+            
+            // Get references to all the necessary DOM elements once.
             const imageFileInput = document.getElementById('image-file-input');
             const fileNameDisplay = document.getElementById('fileName');
             const analyzeBtn = document.getElementById('analyzeBtn');
@@ -152,19 +156,27 @@
             const resultsContainer = document.getElementById('resultsContainer');
             const copyBtn = document.getElementById('copyBtn');
             const copyBtnText = document.getElementById('copyBtnText');
-            
+            const manualModeBtn = document.getElementById('manualModeBtn');
+
+            // This variable will hold the base64 string of the uploaded image.
             let imageBase64 = null;
 
+            // --- Event Listeners ---
+
+            // Listen for a file to be selected in the image input.
             imageFileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (file) {
                     fileNameDisplay.textContent = file.name;
                     const reader = new FileReader();
+                    // When the reader finishes, store the base64 data.
                     reader.onload = (e) => { imageBase64 = e.target.result.split(',')[1]; };
                     reader.readAsDataURL(file);
                 }
             });
 
+            // The main button's click event is now handled by AlpineJS via the @click directive.
+            // This makes the window.handleAction function globally available for Alpine to call.
             window.handleAction = async (currentMode) => {
                 if (currentMode === 'image') {
                     await handleOcr();
@@ -173,6 +185,9 @@
                 }
             }
             
+            // --- Core Functions ---
+
+            // Handles the OCR process when in "Upload Image" mode.
             async function handleOcr() {
                 if (!imageBase64) {
                     showError("Please upload an image to read.");
@@ -192,8 +207,10 @@
                     const extractedValues = await response.json();
                     
                     populateForm(extractedValues);
-                    const alpineComponent = document.querySelector('[x-data]').__x;
-                    alpineComponent.data.mode = 'manual';
+                    
+                    // This is the robust fix: programmatically click the "Manual Entry" button.
+                    // This uses Alpine's own event listeners to safely change the mode.
+                    manualModeBtn.click();
 
                     showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
 
@@ -205,6 +222,7 @@
                 }
             }
 
+            // Handles the analysis process when in "Manual Entry" mode.
             async function handleAnalysis() {
                 setLoadingState(true, "Analyzing...");
                 clearResults();
@@ -250,6 +268,9 @@
                 }
             }
 
+            // --- Helper Functions ---
+
+            // Populates the manual form fields with data from the OCR process.
             function populateForm(values) {
                 const fields = ['ph', 'pco2', 'po2', 'hco3', 'sodium', 'potassium', 'chloride', 'albumin', 'lactate', 'glucose', 'calcium', 'hb'];
                 fields.forEach(field => {
@@ -260,6 +281,7 @@
                 });
             }
 
+            // Renders the interpretation HTML into the results card.
             function displayInterpretation(interpretation) {
                 let html = '';
                 if (interpretation.keyFindings) { html += `<div class="bg-blue-50 border border-wmebem-blue/30 p-4 rounded-xl"><h3 class="text-base font-semibold text-wmebem-navy mb-2">Key Findings</h3><div class="prose prose-lg max-w-none">${marked.parse(interpretation.keyFindings)}</div></div>`; }
@@ -273,6 +295,7 @@
                 placeholderCard.classList.add('hidden');
             }
 
+            // Gathers and processes all values from the manual input form.
             function getManualValues() {
                 const pco2_val = parseFloat(document.getElementById('pco2').value);
                 const pco2_units = document.getElementById('pco2_units').value;
@@ -295,6 +318,7 @@
                 };
             }
 
+            // Manages the visual loading state of the main button.
             function setLoadingState(isLoading, text) {
                 analyzeBtn.disabled = isLoading;
                 analyzeBtn.classList.toggle('opacity-75', isLoading);
@@ -304,12 +328,14 @@
                 loader.classList.toggle('hidden', !isLoading);
             }
             
+            // Resets the results view to its initial placeholder state.
             function clearResults() {
                 resultsContainer.innerHTML = '';
                 resultsCard.classList.add('hidden');
                 placeholderCard.classList.remove('hidden');
             }
 
+            // Displays an error message in the results card.
             function showError(message) {
                 clearResults();
                 resultsContainer.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p class="font-bold">Error</p><p>${message}</p></div>`;
@@ -317,6 +343,7 @@
                 placeholderCard.classList.add('hidden');
             }
             
+            // Displays an informational message, e.g., to ask the user to verify OCR data.
             function showInfo(message) {
                 clearResults();
                 resultsContainer.innerHTML = `<div class="bg-blue-100 border-l-4 border-wmebem-blue text-wmebem-navy p-4 rounded-md" role="alert"><p class="font-bold">Action Required</p><p>${message}</p></div>`;
@@ -324,6 +351,7 @@
                 placeholderCard.classList.add('hidden');
             }
 
+            // Handles the "Copy for Records" button click.
             copyBtn.addEventListener('click', () => {
                 const textToCopy = resultsContainer.innerText;
                 navigator.clipboard.writeText(textToCopy).then(() => {
