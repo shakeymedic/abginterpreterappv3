@@ -40,6 +40,10 @@
         }
         [x-cloak] { display: none !important; }
         .prose strong { color: #D92D20; }
+        .input-error {
+            border-color: #D92D20 !important;
+            box-shadow: 0 0 0 1px #D92D20;
+        }
     </style>
 </head>
 <body class="bg-bg-light font-sans">
@@ -58,7 +62,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-6xl mx-auto">
             <!-- Left Column: Inputs -->
-            <div class="lg:col-span-2">
+            <div class="lg-col-span-2">
                 <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200/80 sticky top-8">
                     
                     <h2 class="text-xl font-bold text-wmebem-navy mb-4 border-b pb-4">Patient Data</h2>
@@ -82,20 +86,20 @@
                         <button id="imageModeBtn" @click="mode = 'image'" :class="{'bg-wmebem-blue text-white': mode === 'image', 'text-gray-text bg-transparent': mode !== 'image'}" class="w-full py-2 text-sm font-semibold rounded-md transition-colors">Upload Image</button>
                     </div>
 
-                    <div class="space-y-4">
+                    <div class="space-y-4" id="inputForm">
                         <div x-show="mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><label class="text-sm font-medium text-gray-text">pH <span class="text-xs text-gray-400 font-normal">(7.35-7.45)</span></label><input type="number" step="0.01" id="ph" class="mt-1 w-full p-2 border rounded-md" placeholder="7.35"></div>
-                            <div><label class="text-sm font-medium text-gray-text">pCO₂ <span class="text-xs text-gray-400 font-normal">(4.7-6.0 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="pco2" class="w-full p-2 border rounded-l-md" placeholder="5.5"><select id="pco2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
-                            <div><label class="text-sm font-medium text-gray-text">pO₂ <span class="text-xs text-gray-400 font-normal">(11.1-13.3 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="po2" class="w-full p-2 border rounded-l-md" placeholder="11.0"><select id="po2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
-                            <div><label class="text-sm font-medium text-gray-text">HCO₃⁻ <span class="text-xs text-gray-400 font-normal">(22-26 mmol/L)</span></label><input type="number" step="0.1" id="hco3" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">Na⁺ <span class="text-xs text-gray-400 font-normal">(135-145 mmol/L)</span></label><input type="number" id="sodium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">K⁺ <span class="text-xs text-gray-400 font-normal">(3.5-5.0 mmol/L)</span></label><input type="number" step="0.1" id="potassium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">Cl⁻ <span class="text-xs text-gray-400 font-normal">(98-106 mmol/L)</span></label><input type="number" id="chloride" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">Albumin <span class="text-xs text-gray-400 font-normal">(35-50 g/L)</span></label><input type="number" id="albumin" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">Lactate <span class="text-xs text-gray-400 font-normal">(<2.0 mmol/L)</span></label><input type="number" step="0.1" id="lactate" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">Glucose <span class="text-xs text-gray-400 font-normal">(3.9-5.6 mmol/L)</span></label><input type="number" step="0.1" id="glucose" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">Ionised Ca²⁺ <span class="text-xs text-gray-400 font-normal">(1.15-1.35 mmol/L)</span></label><input type="number" step="0.01" id="calcium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
-                            <div><label class="text-sm font-medium text-gray-text">Hb</label><input type="number" step="0.1" id="hb" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">pH <span class="text-xs text-gray-400 font-normal">(7.35-7.45)</span></label><input type="number" step="0.01" id="ph" data-min="6.8" data-max="7.8" class="mt-1 w-full p-2 border rounded-md" placeholder="7.35"></div>
+                            <div><label class="text-sm font-medium text-gray-text">pCO₂ <span class="text-xs text-gray-400 font-normal" id="pco2-range">(4.7-6.0 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="pco2" data-min-kpa="1" data-max-kpa="20" class="w-full p-2 border rounded-l-md" placeholder="5.5"><select id="pco2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
+                            <div><label class="text-sm font-medium text-gray-text">pO₂ <span class="text-xs text-gray-400 font-normal" id="po2-range">(11.1-13.3 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="po2" data-min-kpa="2" data-max-kpa="80" class="w-full p-2 border rounded-l-md" placeholder="11.0"><select id="po2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
+                            <div><label class="text-sm font-medium text-gray-text">HCO₃⁻ <span class="text-xs text-gray-400 font-normal">(22-26 mmol/L)</span></label><input type="number" step="0.1" id="hco3" data-min="5" data-max="50" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Na⁺ <span class="text-xs text-gray-400 font-normal">(135-145 mmol/L)</span></label><input type="number" id="sodium" data-min="100" data-max="180" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">K⁺ <span class="text-xs text-gray-400 font-normal">(3.5-5.0 mmol/L)</span></label><input type="number" step="0.1" id="potassium" data-min="2.0" data-max="9.0" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Cl⁻ <span class="text-xs text-gray-400 font-normal">(98-106 mmol/L)</span></label><input type="number" id="chloride" data-min="70" data-max="130" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Albumin <span class="text-xs text-gray-400 font-normal">(35-50 g/L)</span></label><input type="number" id="albumin" data-min="10" data-max="60" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Lactate <span class="text-xs text-gray-400 font-normal">(<2.0 mmol/L)</span></label><input type="number" step="0.1" id="lactate" data-min="0.1" data-max="30" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Glucose <span class="text-xs text-gray-400 font-normal">(3.9-5.6 mmol/L)</span></label><input type="number" step="0.1" id="glucose" data-min="1.0" data-max="80" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Ionised Ca²⁺ <span class="text-xs text-gray-400 font-normal">(1.15-1.35 mmol/L)</span></label><input type="number" step="0.01" id="calcium" data-min="0.5" data-max="2.0" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Hb</label><input type="number" step="0.1" id="hb" data-min="30" data-max="250" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L"></div>
                         </div>
 
                         <div x-show="mode === 'image'" x-cloak>
@@ -103,11 +107,14 @@
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4 mt-4">
-                             <div><label for="fio2" class="text-sm font-medium text-gray-text">FiO₂ (%)</label><input type="number" step="1" id="fio2" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 21"></div>
+                             <div><label for="fio2" class="text-sm font-medium text-gray-text">FiO₂ (%)</label><input type="number" step="1" id="fio2" data-min="21" data-max="100" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 21"></div>
                              <div class="sm:col-span-2"><label for="clinicalHistory" class="text-sm font-medium text-gray-text">Clinical History</label><textarea id="clinicalHistory" rows="3" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 78 y/o female with COPD..."></textarea></div>
                         </div>
 
-                        <div class="pt-4"><button id="analyzeBtn" @click="handleAction(mode)" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
+                        <div class="pt-4 flex space-x-2">
+                            <button id="clearBtn" class="w-1/3 flex items-center justify-center py-3 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors">Clear</button>
+                            <button id="analyzeBtn" @click="handleAction(mode)" class="w-2/3 flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -141,11 +148,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
-        // All event listeners and functions are defined inside the 'alpine:init' event
-        // to ensure AlpineJS is loaded and ready.
         document.addEventListener('alpine:init', () => {
             
-            // Get references to all the necessary DOM elements once.
             const imageFileInput = document.getElementById('image-file-input');
             const fileNameDisplay = document.getElementById('fileName');
             const analyzeBtn = document.getElementById('analyzeBtn');
@@ -157,26 +161,26 @@
             const copyBtn = document.getElementById('copyBtn');
             const copyBtnText = document.getElementById('copyBtnText');
             const manualModeBtn = document.getElementById('manualModeBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const allInputs = document.querySelectorAll('#inputForm input, #inputForm textarea');
+            const pco2Units = document.getElementById('pco2_units');
+            const po2Units = document.getElementById('po2_units');
+            const pco2Range = document.getElementById('pco2-range');
+            const po2Range = document.getElementById('po2-range');
 
-            // This variable will hold the base64 string of the uploaded image.
             let imageBase64 = null;
 
             // --- Event Listeners ---
-
-            // Listen for a file to be selected in the image input.
             imageFileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (file) {
                     fileNameDisplay.textContent = file.name;
                     const reader = new FileReader();
-                    // When the reader finishes, store the base64 data.
                     reader.onload = (e) => { imageBase64 = e.target.result.split(',')[1]; };
                     reader.readAsDataURL(file);
                 }
             });
 
-            // The main button's click event is now handled by AlpineJS via the @click directive.
-            // This makes the window.handleAction function globally available for Alpine to call.
             window.handleAction = async (currentMode) => {
                 if (currentMode === 'image') {
                     await handleOcr();
@@ -184,10 +188,25 @@
                     await handleAnalysis();
                 }
             }
+
+            clearBtn.addEventListener('click', () => {
+                allInputs.forEach(input => {
+                    input.value = '';
+                    input.classList.remove('input-error');
+                });
+                clearResults();
+            });
+
+            pco2Units.addEventListener('change', updateUnitDisplay);
+            po2Units.addEventListener('change', updateUnitDisplay);
+
+            allInputs.forEach(input => {
+                if(input.type === 'number') {
+                    input.addEventListener('input', validateInput);
+                }
+            });
             
             // --- Core Functions ---
-
-            // Handles the OCR process when in "Upload Image" mode.
             async function handleOcr() {
                 if (!imageBase64) {
                     showError("Please upload an image to read.");
@@ -207,13 +226,8 @@
                     const extractedValues = await response.json();
                     
                     populateForm(extractedValues);
-                    
-                    // This is the robust fix: programmatically click the "Manual Entry" button.
-                    // This uses Alpine's own event listeners to safely change the mode.
                     manualModeBtn.click();
-
                     showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
-
                 } catch (error) {
                     console.error("OCR Error Details:", error);
                     showError(`Failed to read image. Please try again or enter values manually. Error: ${error.message}`);
@@ -222,7 +236,6 @@
                 }
             }
 
-            // Handles the analysis process when in "Manual Entry" mode.
             async function handleAnalysis() {
                 setLoadingState(true, "Analyzing...");
                 clearResults();
@@ -234,7 +247,9 @@
                     return;
                 }
                 
+                // *** THIS IS THE FIX: Added 'mode: "manual"' to the request body ***
                 const requestBody = {
+                    mode: 'manual', // This was the missing field
                     values: manualValues,
                     clinicalHistory: document.getElementById('clinicalHistory').value,
                     sampleType: document.querySelector('input[name="sampleType"]:checked').value
@@ -259,7 +274,6 @@
                     
                     const interpretation = await response.json();
                     displayInterpretation(interpretation);
-
                 } catch (error) {
                     console.error("Analysis Error Details:", error);
                     showError(`An error occurred during analysis: ${error.message}.`);
@@ -269,8 +283,6 @@
             }
 
             // --- Helper Functions ---
-
-            // Populates the manual form fields with data from the OCR process.
             function populateForm(values) {
                 const fields = ['ph', 'pco2', 'po2', 'hco3', 'sodium', 'potassium', 'chloride', 'albumin', 'lactate', 'glucose', 'calcium', 'hb'];
                 fields.forEach(field => {
@@ -281,7 +293,6 @@
                 });
             }
 
-            // Renders the interpretation HTML into the results card.
             function displayInterpretation(interpretation) {
                 let html = '';
                 if (interpretation.keyFindings) { html += `<div class="bg-blue-50 border border-wmebem-blue/30 p-4 rounded-xl"><h3 class="text-base font-semibold text-wmebem-navy mb-2">Key Findings</h3><div class="prose prose-lg max-w-none">${marked.parse(interpretation.keyFindings)}</div></div>`; }
@@ -295,7 +306,6 @@
                 placeholderCard.classList.add('hidden');
             }
 
-            // Gathers and processes all values from the manual input form.
             function getManualValues() {
                 const pco2_val = parseFloat(document.getElementById('pco2').value);
                 const pco2_units = document.getElementById('pco2_units').value;
@@ -318,7 +328,6 @@
                 };
             }
 
-            // Manages the visual loading state of the main button.
             function setLoadingState(isLoading, text) {
                 analyzeBtn.disabled = isLoading;
                 analyzeBtn.classList.toggle('opacity-75', isLoading);
@@ -328,14 +337,12 @@
                 loader.classList.toggle('hidden', !isLoading);
             }
             
-            // Resets the results view to its initial placeholder state.
             function clearResults() {
                 resultsContainer.innerHTML = '';
                 resultsCard.classList.add('hidden');
                 placeholderCard.classList.remove('hidden');
             }
 
-            // Displays an error message in the results card.
             function showError(message) {
                 clearResults();
                 resultsContainer.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p class="font-bold">Error</p><p>${message}</p></div>`;
@@ -343,15 +350,56 @@
                 placeholderCard.classList.add('hidden');
             }
             
-            // Displays an informational message, e.g., to ask the user to verify OCR data.
             function showInfo(message) {
                 clearResults();
                 resultsContainer.innerHTML = `<div class="bg-blue-100 border-l-4 border-wmebem-blue text-wmebem-navy p-4 rounded-md" role="alert"><p class="font-bold">Action Required</p><p>${message}</p></div>`;
                 resultsCard.classList.remove('hidden');
                 placeholderCard.classList.add('hidden');
             }
+            
+            function updateUnitDisplay(event) {
+                const selectEl = event.target;
+                const inputEl = selectEl.previousElementSibling;
+                const rangeEl = selectEl.parentElement.previousElementSibling.querySelector('span');
+                const isKpa = selectEl.value === 'kPa';
+                const kpaMin = parseFloat(inputEl.dataset.minKpa);
+                const kpaMax = parseFloat(inputEl.dataset.maxKpa);
 
-            // Handles the "Copy for Records" button click.
+                if (isKpa) {
+                    rangeEl.textContent = `(${kpaMin}-${kpaMax} kPa)`;
+                    inputEl.placeholder = (kpaMin + kpaMax) / 2;
+                } else {
+                    const mmhgMin = (kpaMin * 7.5).toFixed(0);
+                    const mmhgMax = (kpaMax * 7.5).toFixed(0);
+                    rangeEl.textContent = `(${mmhgMin}-${mmhgMax} mmHg)`;
+                    inputEl.placeholder = (parseFloat(mmhgMin) + parseFloat(mmhgMax)) / 2;
+                }
+            }
+
+            function validateInput(event){
+                const input = event.target;
+                const value = parseFloat(input.value);
+                let min = parseFloat(input.dataset.min);
+                let max = parseFloat(input.dataset.max);
+
+                if (input.id === 'pco2' || input.id === 'po2') {
+                    const units = document.getElementById(`${input.id}_units`).value;
+                    if (units === 'mmHg') {
+                        min = parseFloat(input.dataset.minKpa) * 7.5;
+                        max = parseFloat(input.dataset.maxKpa) * 7.5;
+                    } else {
+                         min = parseFloat(input.dataset.minKpa);
+                         max = parseFloat(input.dataset.maxKpa);
+                    }
+                }
+                
+                if (input.value && (value < min || value > max)) {
+                    input.classList.add('input-error');
+                } else {
+                    input.classList.remove('input-error');
+                }
+            }
+
             copyBtn.addEventListener('click', () => {
                 const textToCopy = resultsContainer.innerText;
                 navigator.clipboard.writeText(textToCopy).then(() => {
