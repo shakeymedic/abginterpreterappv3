@@ -319,7 +319,7 @@
                     displayInterpretation(interpretation);
                 } catch (error) {
                     console.error("Analysis Error Details:", error);
-                    showError(`An error occurred during analysis: ${error.message}.`);
+                    showError(`An error occurred during analysis: ${error.message || 'Please check the server logs for more details.'}`);
                 } finally {
                     setLoadingState(false);
                 }
