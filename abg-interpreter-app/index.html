@@ -233,20 +233,15 @@
                         body: JSON.stringify(requestBody)
                     });
 
-                    // *** THIS IS THE UPDATED ERROR HANDLING BLOCK ***
                     if (!response.ok) {
-                        // Read the response body as text ONCE.
-                        const errorText = await response.text();
-                        let displayError = errorText;
+                        let errorText = `HTTP error! status: ${response.status}`;
                         try {
-                            // Try to parse it as JSON to get a cleaner message.
-                            const errorJson = JSON.parse(errorText);
-                            displayError = errorJson.error || JSON.stringify(errorJson);
+                            const errorData = await response.json();
+                            errorText = errorData.error || JSON.stringify(errorData);
                         } catch (e) {
-                            // If it's not JSON, we'll just use the raw text.
-                            // This prevents the "body already consumed" error.
+                            errorText = await response.text();
                         }
-                        throw new Error(displayError);
+                        throw new Error(errorText);
                     }
                     
                     const interpretation = await response.json();
@@ -299,7 +294,7 @@
 
                 } catch (error) {
                     console.error("Analysis Error Details:", error);
-                    showError(`An error occurred during analysis: ${error.message}`);
+                    showError(`An error occurred during analysis: ${error.message}. Ensure the API key is correctly configured in your deployment settings.`);
                 } finally {
                     setLoadingState(false);
                 }
