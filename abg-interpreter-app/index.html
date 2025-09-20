@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABG/VBG Interpreter Pro - Digital Health</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'rcem-blue': { DEFAULT: '#00396B' },
+                        'rcem-cyan': { DEFAULT: '#00ADBB', dark: '#008b97' },
+                        'bg-light': '#F8F9FA',
+                        'gray-text': '#6C757D',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .loader {
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        [x-cloak] { display: none !important; }
+        .prose strong { color: #D92D20; } /* Custom style for bolded abnormal results */
+    </style>
+</head>
+<body class="bg-bg-light font-sans">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="text-left mb-10 max-w-6xl mx-auto">
+            <div class="flex items-center gap-4">
+                 <svg class="h-10 w-10 text-rcem-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+                <div>
+                    <h1 class="text-3xl font-bold text-rcem-blue">ABG/VBG Interpreter Pro</h1>
+                    <p class="text-md text-gray-text">Physicochemical & traditional blood gas analysis.</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-6xl mx-auto">
+            <!-- Left Column: Inputs -->
+            <div class="lg:col-span-2" x-data="{ mode: 'manual' }">
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200/80 sticky top-8">
+                    
+                    <h2 class="text-xl font-bold text-rcem-blue mb-4 border-b pb-4">Patient Data</h2>
+                     
+                    <!-- Sample Type -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-text">Sample Type</label>
+                        <div class="mt-2 flex space-x-4">
+                            <label class="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50 flex-1 justify-center border">
+                                <input type="radio" name="sampleType" value="Arterial" class="h-4 w-4 text-rcem-cyan focus:ring-rcem-cyan" checked>
+                                <span class="ml-2 text-sm font-medium">Arterial</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50 flex-1 justify-center border">
+                                <input type="radio" name="sampleType" value="Venous" class="h-4 w-4 text-rcem-cyan focus:ring-rcem-cyan">
+                                <span class="ml-2 text-sm font-medium">Venous</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Toggle -->
+                    <div class="mb-6 bg-gray-100 p-1 rounded-lg flex space-x-1">
+                        <button id="manualModeBtn" @click="mode = 'manual'" :class="{'bg-rcem-cyan text-white': mode === 'manual', 'text-gray-text bg-transparent': mode !== 'manual'}" class="w-full py-2 text-sm font-semibold rounded-md transition-colors">Manual Entry</button>
+                        <button id="imageModeBtn" @click="mode = 'image'" :class="{'bg-rcem-cyan text-white': mode === 'image', 'text-gray-text bg-transparent': mode !== 'image'}" class="w-full py-2 text-sm font-semibold rounded-md transition-colors">Upload Image</button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Manual Form -->
+                        <div x-show="mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div><label class="text-sm font-medium text-gray-text">pH <span class="text-xs text-gray-400 font-normal">(7.35-7.45)</span></label><input type="number" step="0.01" id="ph" class="mt-1 w-full p-2 border rounded-md" placeholder="7.35" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">pCO₂ <span class="text-xs text-gray-400 font-normal">(4.7-6.0 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="pco2" class="w-full p-2 border rounded-l-md" placeholder="5.5" value=""><select id="pco2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
+                            <div><label class="text-sm font-medium text-gray-text">pO₂ <span class="text-xs text-gray-400 font-normal">(11.1-13.3 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="po2" class="w-full p-2 border rounded-l-md" placeholder="11.0" value=""><select id="po2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
+                            <div><label class="text-sm font-medium text-gray-text">HCO₃⁻ <span class="text-xs text-gray-400 font-normal">(22-26 mmol/L)</span></label><input type="number" step="0.1" id="hco3" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">Na⁺ <span class="text-xs text-gray-400 font-normal">(135-145 mmol/L)</span></label><input type="number" id="sodium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">K⁺ <span class="text-xs text-gray-400 font-normal">(3.5-5.0 mmol/L)</span></label><input type="number" step="0.1" id="potassium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">Cl⁻ <span class="text-xs text-gray-400 font-normal">(98-106 mmol/L)</span></label><input type="number" id="chloride" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">Albumin <span class="text-xs text-gray-400 font-normal">(35-50 g/L)</span></label><input type="number" id="albumin" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">Lactate <span class="text-xs text-gray-400 font-normal">(<2.0 mmol/L)</span></label><input type="number" step="0.1" id="lactate" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">Glucose <span class="text-xs text-gray-400 font-normal">(3.9-5.6 mmol/L)</span></label><input type="number" step="0.1" id="glucose" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">Ionised Ca²⁺ <span class="text-xs text-gray-400 font-normal">(1.15-1.35 mmol/L)</span></label><input type="number" step="0.01" id="calcium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">Hb</label><input type="number" step="0.1" id="hb" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L" value=""></div>
+                        </div>
+
+                        <!-- Image Upload -->
+                        <div x-show="mode === 'image'" x-cloak>
+                             <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg"><div class="space-y-1 text-center"><svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg><div class="flex text-sm text-gray-600"><label for="image-file-input" class="relative cursor-pointer bg-white rounded-md font-medium text-rcem-cyan hover:text-rcem-cyan-dark"><span>Upload a file or take a photo</span><input id="image-file-input" type="file" class="sr-only" accept="image/*" capture="environment"></label></div><p class="text-xs text-gray-500" id="fileName">PNG, JPG, GIF</p></div></div>
+                        </div>
+
+                        <!-- Shared Fields -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4 mt-4">
+                             <div><label for="fio2" class="text-sm font-medium text-gray-text">FiO₂ (%)</label><input type="number" step="1" id="fio2" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 21" value=""></div>
+                             <div class="sm:col-span-2"><label for="clinicalHistory" class="text-sm font-medium text-gray-text">Clinical History</label><textarea id="clinicalHistory" rows="3" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 78 y/o female with COPD..."></textarea></div>
+                        </div>
+
+                        <!-- Analyze Button -->
+                        <div class="pt-4"><button id="analyzeBtn" class="w-full flex items-center justify-center py-3 px-4 bg-rcem-blue text-white font-semibold rounded-lg shadow-md hover:bg-rcem-blue/90 transition-colors"><span id="analyzeBtnText">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results -->
+            <div class="lg:col-span-3">
+                 <div id="resultsCard" class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200/80 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-rcem-blue">Interpretation</h2>
+                        <button id="copyBtn" class="flex items-center gap-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-text py-2 px-3 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            <span id="copyBtnText">Copy for Records</span>
+                        </button>
+                    </div>
+                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border">
+                        <h3 class="text-base font-semibold text-rcem-blue mb-2">At-a-Glance Nomogram</h3>
+                        <canvas id="nomogramCanvas" class="w-full h-auto" width="450" height="300"></canvas>
+                        <div class="mt-2 flex items-center justify-center space-x-4 text-xs text-gray-text">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 rounded-sm bg-rcem-cyan/20 border border-rcem-cyan/40"></div>
+                                <span>Normal Range</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 rounded-full bg-red-600"></div>
+                                <span>Patient Result</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="resultsContainer" class="space-y-4">
+                        <!-- JS will populate this section -->
+                    </div>
+                </div>
+                <div id="placeholderCard" class="bg-white/80 p-6 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-center h-full">
+                    <svg class="w-16 h-16 text-gray-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-1.125 0-2.25.9-2.25 2.25v11.25c0 1.244 1.006 2.25 2.25 2.25h14.25c1.244 0 2.25-1.006 2.25-2.25V10.5M8.25 8.25v-3.108c0-.62-.44-1.158-1.036-1.286a48.421 48.421 0 00-4.124-.372A2.25 2.25 0 00.75 5.25v11.25c0 .621.44 1.158 1.036 1.286a48.421 48.421 0 004.124.372" /></svg>
+                    <h3 class="text-lg font-semibold text-rcem-blue">Awaiting Data</h3>
+                    <p class="text-gray-text mt-1">Enter patient data or upload a file to begin analysis.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Element Cache
+            const imageFileInput = document.getElementById('image-file-input');
+            const fileNameDisplay = document.getElementById('fileName');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const analyzeBtnText = document.getElementById('analyzeBtnText');
+            const loader = document.getElementById('loader');
+            const resultsCard = document.getElementById('resultsCard');
+            const placeholderCard = document.getElementById('placeholderCard');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const manualModeBtn = document.getElementById('manualModeBtn');
+            const copyBtn = document.getElementById('copyBtn');
+            const copyBtnText = document.getElementById('copyBtnText');
+            
+            let imageBase64 = null;
+
+            // Event Listeners
+            imageFileInput.addEventListener('change', handleImageUpload);
+            analyzeBtn.addEventListener('click', handleAnalysis);
+            copyBtn.addEventListener('click', copyResultsToClipboard);
+
+            // Functions
+            function handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    fileNameDisplay.textContent = file.name;
+                    const reader = new FileReader();
+                    reader.onload = (e) => { imageBase64 = e.target.result.split(',')[1]; };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            async function handleAnalysis() {
+                setLoadingState(true);
+                resultsCard.classList.add('hidden');
+                placeholderCard.classList.remove('hidden');
+                resultsContainer.innerHTML = '';
+                
+                const currentMode = manualModeBtn.classList.contains('bg-rcem-cyan') ? 'manual' : 'image';
+                
+                let requestBody = {
+                    mode: currentMode,
+                    clinicalHistory: document.getElementById('clinicalHistory').value,
+                    sampleType: document.querySelector('input[name="sampleType"]:checked').value
+                };
+
+                let manualValues = getManualValues(); // Always get values for nomogram
+
+                if (currentMode === 'manual') {
+                    if (!manualValues.ph || !manualValues.pco2) {
+                        showError("Please enter at least pH and pCO₂ to perform analysis.");
+                        setLoadingState(false);
+                        return;
+                    }
+                    requestBody.values = manualValues;
+                } else { // Image mode
+                    if (!imageBase64) {
+                        showError("Please upload an image to analyze.");
+                        setLoadingState(false);
+                        return;
+                    }
+                    requestBody.image = imageBase64;
+                    requestBody.values = { fio2: manualValues.fio2 };
+                }
+
+                try {
+                    const apiUrl = '/api/interpret'; 
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    // *** THIS IS THE UPDATED ERROR HANDLING BLOCK ***
+                    if (!response.ok) {
+                        // Read the response body as text ONCE.
+                        const errorText = await response.text();
+                        let displayError = errorText;
+                        try {
+                            // Try to parse it as JSON to get a cleaner message.
+                            const errorJson = JSON.parse(errorText);
+                            displayError = errorJson.error || JSON.stringify(errorJson);
+                        } catch (e) {
+                            // If it's not JSON, we'll just use the raw text.
+                            // This prevents the "body already consumed" error.
+                        }
+                        throw new Error(displayError);
+                    }
+                    
+                    const interpretation = await response.json();
+                    
+                    let html = '';
+
+                    if (interpretation.keyFindings) {
+                        html += `
+                        <div class="bg-blue-50 border border-rcem-blue/30 p-4 rounded-xl">
+                            <h3 class="text-base font-semibold text-rcem-blue mb-2">Key Findings</h3>
+                            <div class="prose prose-lg max-w-none">${marked.parse(interpretation.keyFindings)}</div>
+                        </div>`;
+                    }
+                    if (interpretation.hhAnalysis) {
+                        html += `
+                        <div class="bg-gray-50 border p-4 rounded-xl">
+                            <h3 class="text-base font-semibold text-rcem-blue mb-2">Henderson-Hasselbalch Analysis</h3>
+                            <div class="prose prose-lg max-w-none">${marked.parse(interpretation.hhAnalysis)}</div>
+                        </div>`;
+                    }
+                    if (interpretation.stewartAnalysis) {
+                        html += `
+                        <div class="bg-gray-50 border p-4 rounded-xl">
+                            <h3 class="text-base font-semibold text-rcem-blue mb-2">Stewart (Physicochemical) Analysis</h3>
+                            <div class="prose prose-lg max-w-none">${marked.parse(interpretation.stewartAnalysis)}</div>
+                        </div>`;
+                    }
+                    if (interpretation.additionalCalculations) {
+                        html += `
+                        <div class="bg-gray-50 border p-4 rounded-xl">
+                            <h3 class="text-base font-semibold text-rcem-blue mb-2">Additional Calculations</h3>
+                            <div class="prose prose-lg max-w-none">${marked.parse(interpretation.additionalCalculations)}</div>
+                        </div>`;
+                    }
+                    if (interpretation.differentials) {
+                        html += `
+                        <div class="bg-gray-50 border p-4 rounded-xl">
+                            <h3 class="text-base font-semibold text-rcem-blue mb-2">Potential Differential Diagnoses</h3>
+                            <div class="prose prose-lg max-w-none">${marked.parse(interpretation.differentials)}</div>
+                        </div>`;
+                    }
+
+                    resultsContainer.innerHTML = html;
+                    
+                    if(manualValues.ph && manualValues.pco2) {
+                        drawNomogram(manualValues.ph, manualValues.pco2);
+                    }
+                    resultsCard.classList.remove('hidden');
+                    placeholderCard.classList.add('hidden');
+
+                } catch (error) {
+                    console.error("Analysis Error Details:", error);
+                    showError(`An error occurred during analysis: ${error.message}`);
+                } finally {
+                    setLoadingState(false);
+                }
+            }
+
+            function getManualValues() {
+                const pco2_val = parseFloat(document.getElementById('pco2').value);
+                const pco2_units = document.getElementById('pco2_units').value;
+                const po2_val = parseFloat(document.getElementById('po2').value);
+                const po2_units = document.getElementById('po2_units').value;
+                return {
+                    ph: parseFloat(document.getElementById('ph').value),
+                    pco2: pco2_units === 'mmHg' ? (pco2_val / 7.5) : pco2_val,
+                    po2: po2_units === 'mmHg' ? (po2_val / 7.5) : po2_val,
+                    fio2: parseFloat(document.getElementById('fio2').value),
+                    hco3: parseFloat(document.getElementById('hco3').value), 
+                    sodium: parseFloat(document.getElementById('sodium').value), 
+                    potassium: parseFloat(document.getElementById('potassium').value), 
+                    chloride: parseFloat(document.getElementById('chloride').value), 
+                    albumin: parseFloat(document.getElementById('albumin').value), 
+                    lactate: parseFloat(document.getElementById('lactate').value), 
+                    glucose: parseFloat(document.getElementById('glucose').value), 
+                    calcium: parseFloat(document.getElementById('calcium').value), 
+                    hb: parseFloat(document.getElementById('hb').value)
+                };
+            }
+
+            function setLoadingState(isLoading) {
+                analyzeBtn.disabled = isLoading;
+                analyzeBtn.classList.toggle('opacity-75', isLoading);
+                analyzeBtnText.textContent = isLoading ? 'Analyzing...' : 'Analyze';
+                loader.classList.toggle('hidden', !isLoading);
+            }
+            
+            function showError(message) {
+                resultsContainer.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p class="font-bold">Error</p><p>${message}</p></div>`;
+                resultsCard.classList.remove('hidden');
+                placeholderCard.classList.add('hidden');
+            }
+
+            function copyResultsToClipboard() {
+                const textToCopy = resultsContainer.innerText;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    copyBtnText.textContent = 'Copied!';
+                    setTimeout(() => { copyBtnText.textContent = 'Copy for Records'; }, 2000);
+                }, (err) => {
+                    console.error('Could not copy text: ', err);
+                    copyBtnText.textContent = 'Failed to Copy';
+                    setTimeout(() => { copyBtnText.textContent = 'Copy for Records'; }, 2000);
+                });
+            }
+
+            function drawNomogram(ph, pco2_kPa) {
+                const canvas = document.getElementById('nomogramCanvas');
+                if (!canvas || !ph || !pco2_kPa) return;
+                const ctx = canvas.getContext('2d');
+                
+                const width = canvas.width;
+                const height = canvas.height;
+                const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+
+                // Define axis ranges in standard units (pH and kPa)
+                const phRange = { min: 7.0, max: 7.7 };
+                const pco2Range = { min: 0, max: 16 }; 
+
+                // Mapping functions to convert data values to canvas coordinates
+                const mapX = (val) => padding.left + ((val - phRange.min) / (phRange.max - phRange.min)) * (width - padding.left - padding.right);
+                const mapY = (val) => height - padding.bottom - ((val - pco2Range.min) / (pco2Range.max - pco2Range.min)) * (height - padding.top - padding.bottom);
+
+                // Clear canvas for redrawing
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, width, height);
+
+                // Draw normal range box (pH 7.35-7.45, pCO2 4.7-6.0 kPa)
+                ctx.fillStyle = 'rgba(0, 173, 187, 0.1)'; // RCEM Cyan transparent
+                const normalX = mapX(7.35);
+                const normalY = mapY(6.0); 
+                const normalWidth = mapX(7.45) - normalX;
+                const normalHeight = mapY(4.7) - normalY; 
+                ctx.fillRect(normalX, normalY, normalWidth, normalHeight);
+                ctx.strokeStyle = 'rgba(0, 173, 187, 0.4)';
+                ctx.strokeRect(normalX, normalY, normalWidth, normalHeight);
+
+                // Draw Axes lines
+                ctx.beginPath();
+                ctx.strokeStyle = '#6C757D';
+                ctx.lineWidth = 1;
+                ctx.moveTo(padding.left, padding.top);
+                ctx.lineTo(padding.left, height - padding.bottom);
+                ctx.lineTo(width - padding.right, height - padding.bottom);
+                ctx.stroke();
+
+                // Draw Ticks and Labels for pH axis (X)
+                ctx.fillStyle = '#6C757D';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                for (let i = 0; i <= 7; i++) {
+                    const tickPh = phRange.min + i * 0.1;
+                    const x = mapX(tickPh);
+                    ctx.moveTo(x, height - padding.bottom);
+                    ctx.lineTo(x, height - padding.bottom + 5);
+                    ctx.fillText(tickPh.toFixed(1), x, height - padding.bottom + 10);
+                }
+
+                // Draw Ticks and Labels for pCO2 axis (Y)
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                for (let i = pco2Range.min; i <= pco2Range.max; i += 2) {
+                    const tickPco2 = i;
+                    const y = mapY(tickPco2);
+                    ctx.moveTo(padding.left, y);
+                    ctx.lineTo(padding.left - 5, y);
+                    ctx.fillText(tickPco2, padding.left - 10, y);
+                }
+                ctx.stroke();
+                
+                // Axis Titles
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.fillText('pH', width / 2, height - 10);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText('pCO₂ (kPa)', -height / 2, 15);
+                ctx.restore();
+
+                // Plot patient data point
+                const patientX = mapX(ph);
+                const patientY = mapY(pco2_kPa);
+                ctx.beginPath();
+                ctx.fillStyle = '#D92D20'; // Red
+                ctx.arc(patientX, patientY, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        });
+    </script>
+</body>
+</html>
+
