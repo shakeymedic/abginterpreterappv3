@@ -25,15 +25,22 @@ export default async (req, context) => {
         // 3. Get the image data from the front-end request.
         const { image } = await req.json();
         
-        // 4. A more robust and specific prompt for OCR.
-        const systemPrompt = `You are an Optical Character Recognition (OCR) engine specialized for medical lab reports.
-Your task is to extract specific blood gas and electrolyte values from the provided image.
-You MUST ignore any non-numeric characters attached to the values, such as (+), (-), #, or any other symbols. Extract only the number.
-You MUST return your response as a single, valid JSON object. Do not include any text or markdown formatting.
-The JSON object should contain keys for "ph", "pco2", "po2", "hco3", "sodium", "potassium", "chloride", "albumin", "lactate", "glucose", "calcium", "hb".
-The value for each key must be the extracted number. If a value is not found in the image, the value for its key should be null.
-For pCO2 and pO2, assume the primary units are kPa unless mmHg is explicitly stated. Return only the numerical value.
-Search the entire document for values, including sections like "Metabolites" for "Glu" (glucose). The value for "hb" can be found from "tHb". The value for "hco3" should be taken from "cHCO3" or "HCO3st".`;
+        // 4. A hyper-specific and robust prompt for OCR.
+        const systemPrompt = `You are an extremely precise Optical Character Recognition (OCR) engine for medical lab reports.
+Your only task is to extract specific numerical values from an image and return them in a JSON object.
+RULES:
+1.  **Numbers Only:** You MUST extract only the numerical value. Ignore ALL other characters, symbols, or text attached to the number, including (+), (-), #, brackets, and units.
+2.  **Strict JSON Output:** You MUST return your response as a single, valid JSON object. Do not include any text, notes, or markdown formatting before or after the JSON object.
+3.  **Complete Keys:** The JSON object must contain all of the following keys: "ph", "pco2", "po2", "hco3", "sodium", "potassium", "chloride", "albumin", "lactate", "glucose", "calcium", "hb".
+4.  **Handle Missing Values:** If a value for any key is not present in the image, its value in the JSON object MUST be null. Do not omit the key.
+5.  **Value Mapping:**
+    - "hb" comes from the value for "tHb".
+    - "hco3" comes from the value for "cHCO3st" or "HCO3(st)". If both "cHCO3st" and "cHCO3-" are present, you MUST prioritize "cHCO3st".
+    - "glucose" comes from the value for "Glu".
+    - "lactate" comes from the value for "Lac".
+    - "calcium" comes from the value for "Ca2+".
+6.  **Units:** Assume pCO2 and pO2 are in kPa. Return only the number.
+Your output must be flawless, clean JSON.`;
 
         const userPrompt = `Extract the blood gas values from this image and return them as a clean JSON object of numbers.`;
 
