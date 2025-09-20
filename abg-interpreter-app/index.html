@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ABG/VBG Interpreter Pro - WMEBEM</title>
+    <title>WMEBEM ABG/VBG Interpreter Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,9 +17,8 @@
                         sans: ['Inter', 'sans-serif'],
                     },
                     colors: {
-                        'wmebem-navy': { DEFAULT: '#0B132B' },
-                        'wmebem-blue': { DEFAULT: '#1E90FF' },
-                        'wmebem-accent': { DEFAULT: '#5BC0DE' },
+                        'wmebem-navy': '#0A2240',
+                        'wmebem-blue': '#1A75C4',
                         'bg-light': '#F8F9FA',
                         'gray-text': '#6C757D',
                     }
@@ -40,7 +39,7 @@
             to { transform: rotate(360deg); }
         }
         [x-cloak] { display: none !important; }
-        .prose strong { color: #D92D20; } /* Custom style for bolded abnormal results */
+        .prose strong { color: #D92D20; }
     </style>
 </head>
 <body class="bg-bg-light font-sans">
@@ -49,8 +48,7 @@
         <!-- Header -->
         <header class="text-left mb-10 max-w-6xl mx-auto">
             <div class="flex items-center gap-4">
-                <!-- WMEBEM Logo -->
-                <img src="https://i.imgur.com/09eFLTO.png" alt="WMEBEM Logo" class="w-12 h-12 rounded-full">
+                <img src="https://i.imgur.com/09eFLTO.png" alt="WMEBEM Logo" class="w-12 h-12">
                 <div>
                     <h1 class="text-3xl font-bold text-wmebem-navy">ABG/VBG Interpreter Pro</h1>
                     <p class="text-md text-gray-text">Licensed to West Midlands Evidence Based Emergency Medicine Ltd.</p>
@@ -65,7 +63,6 @@
                     
                     <h2 class="text-xl font-bold text-wmebem-navy mb-4 border-b pb-4">Patient Data</h2>
                      
-                    <!-- Sample Type -->
                     <div class="mb-4">
                         <label class="text-sm font-medium text-gray-text">Sample Type</label>
                         <div class="mt-2 flex space-x-4">
@@ -80,58 +77,51 @@
                         </div>
                     </div>
 
-                    <!-- Toggle -->
                     <div class="mb-6 bg-gray-100 p-1 rounded-lg flex space-x-1">
                         <button id="manualModeBtn" @click="mode = 'manual'" :class="{'bg-wmebem-blue text-white': mode === 'manual', 'text-gray-text bg-transparent': mode !== 'manual'}" class="w-full py-2 text-sm font-semibold rounded-md transition-colors">Manual Entry</button>
                         <button id="imageModeBtn" @click="mode = 'image'" :class="{'bg-wmebem-blue text-white': mode === 'image', 'text-gray-text bg-transparent': mode !== 'image'}" class="w-full py-2 text-sm font-semibold rounded-md transition-colors">Upload Image</button>
                     </div>
 
                     <div class="space-y-4">
-                        <!-- Manual Form -->
                         <div x-show="mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><label class="text-sm font-medium text-gray-text">pH <span class="text-xs text-gray-400 font-normal">(7.35-7.45)</span></label><input type="number" step="0.01" id="ph" class="mt-1 w-full p-2 border rounded-md" placeholder="7.35" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">pCO₂ <span class="text-xs text-gray-400 font-normal">(4.7-6.0 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="pco2" class="w-full p-2 border rounded-l-md" placeholder="5.5" value=""><select id="pco2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
-                            <div><label class="text-sm font-medium text-gray-text">pO₂ <span class="text-xs text-gray-400 font-normal">(11.1-13.3 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="po2" class="w-full p-2 border rounded-l-md" placeholder="11.0" value=""><select id="po2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
-                            <div><label class="text-sm font-medium text-gray-text">HCO₃⁻ <span class="text-xs text-gray-400 font-normal">(22-26 mmol/L)</span></label><input type="number" step="0.1" id="hco3" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">Na⁺ <span class="text-xs text-gray-400 font-normal">(135-145 mmol/L)</span></label><input type="number" id="sodium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">K⁺ <span class="text-xs text-gray-400 font-normal">(3.5-5.0 mmol/L)</span></label><input type="number" step="0.1" id="potassium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">Cl⁻ <span class="text-xs text-gray-400 font-normal">(98-106 mmol/L)</span></label><input type="number" id="chloride" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">Albumin <span class="text-xs text-gray-400 font-normal">(35-50 g/L)</span></label><input type="number" id="albumin" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">Lactate <span class="text-xs text-gray-400 font-normal">(<2.0 mmol/L)</span></label><input type="number" step="0.1" id="lactate" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">Glucose <span class="text-xs text-gray-400 font-normal">(3.9-5.6 mmol/L)</span></label><input type="number" step="0.1" id="glucose" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">Ionised Ca²⁺ <span class="text-xs text-gray-400 font-normal">(1.15-1.35 mmol/L)</span></label><input type="number" step="0.01" id="calcium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L" value=""></div>
-                            <div><label class="text-sm font-medium text-gray-text">Hb</label><input type="number" step="0.1" id="hb" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L" value=""></div>
+                            <div><label class="text-sm font-medium text-gray-text">pH <span class="text-xs text-gray-400 font-normal">(7.35-7.45)</span></label><input type="number" step="0.01" id="ph" class="mt-1 w-full p-2 border rounded-md" placeholder="7.35"></div>
+                            <div><label class="text-sm font-medium text-gray-text">pCO₂ <span class="text-xs text-gray-400 font-normal">(4.7-6.0 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="pco2" class="w-full p-2 border rounded-l-md" placeholder="5.5"><select id="pco2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
+                            <div><label class="text-sm font-medium text-gray-text">pO₂ <span class="text-xs text-gray-400 font-normal">(11.1-13.3 kPa)</span></label><div class="flex mt-1"><input type="number" step="0.1" id="po2" class="w-full p-2 border rounded-l-md" placeholder="11.0"><select id="po2_units" class="border-t border-b border-r p-2 rounded-r-md -ml-px bg-gray-50"><option selected>kPa</option><option>mmHg</option></select></div></div>
+                            <div><label class="text-sm font-medium text-gray-text">HCO₃⁻ <span class="text-xs text-gray-400 font-normal">(22-26 mmol/L)</span></label><input type="number" step="0.1" id="hco3" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Na⁺ <span class="text-xs text-gray-400 font-normal">(135-145 mmol/L)</span></label><input type="number" id="sodium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">K⁺ <span class="text-xs text-gray-400 font-normal">(3.5-5.0 mmol/L)</span></label><input type="number" step="0.1" id="potassium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Cl⁻ <span class="text-xs text-gray-400 font-normal">(98-106 mmol/L)</span></label><input type="number" id="chloride" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Albumin <span class="text-xs text-gray-400 font-normal">(35-50 g/L)</span></label><input type="number" id="albumin" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Lactate <span class="text-xs text-gray-400 font-normal">(<2.0 mmol/L)</span></label><input type="number" step="0.1" id="lactate" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Glucose <span class="text-xs text-gray-400 font-normal">(3.9-5.6 mmol/L)</span></label><input type="number" step="0.1" id="glucose" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Ionised Ca²⁺ <span class="text-xs text-gray-400 font-normal">(1.15-1.35 mmol/L)</span></label><input type="number" step="0.01" id="calcium" class="mt-1 w-full p-2 border rounded-md" placeholder="mmol/L"></div>
+                            <div><label class="text-sm font-medium text-gray-text">Hb</label><input type="number" step="0.1" id="hb" class="mt-1 w-full p-2 border rounded-md" placeholder="g/L"></div>
                         </div>
 
-                        <!-- Image Upload -->
                         <div x-show="mode === 'image'" x-cloak>
-                             <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg"><div class="space-y-1 text-center"><svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg><div class="flex text-sm text-gray-600"><label for="image-file-input" class="relative cursor-pointer bg-white rounded-md font-medium text-wmebem-accent hover:text-wmebem-accent/80"><span>Upload a file or take a photo</span><input id="image-file-input" type="file" class="sr-only" accept="image/*" capture="environment"></label></div><p class="text-xs text-gray-500" id="fileName">PNG, JPG, GIF</p></div></div>
+                             <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg"><div class="space-y-1 text-center"><svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg><div class="flex text-sm text-gray-600"><label for="image-file-input" class="relative cursor-pointer bg-white rounded-md font-medium text-wmebem-blue hover:text-wmebem-blue"><span>Upload a file or take a photo</span><input id="image-file-input" type="file" class="sr-only" accept="image/*" capture="environment"></label></div><p class="text-xs text-gray-500" id="fileName">PNG, JPG, GIF</p></div></div>
                         </div>
 
-                        <!-- Shared Fields -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4 mt-4">
-                             <div><label for="fio2" class="text-sm font-medium text-gray-text">FiO₂ (%)</label><input type="number" step="1" id="fio2" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 21" value=""></div>
+                             <div><label for="fio2" class="text-sm font-medium text-gray-text">FiO₂ (%)</label><input type="number" step="1" id="fio2" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 21"></div>
                              <div class="sm:col-span-2"><label for="clinicalHistory" class="text-sm font-medium text-gray-text">Clinical History</label><textarea id="clinicalHistory" rows="3" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 78 y/o female with COPD..."></textarea></div>
                         </div>
 
-                        <!-- Analyze Button -->
                         <div class="pt-4"><button id="analyzeBtn" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Results -->
             <div class="lg:col-span-3">
                  <div id="resultsCard" class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200/80 hidden">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-wmebem-navy">Interpretation</h2>
                         <button id="copyBtn" class="flex items-center gap-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-text py-2 px-3 rounded-lg transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 S0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             <span id="copyBtnText">Copy for Records</span>
                         </button>
                     </div>
                     <div id="resultsContainer" class="space-y-4">
-                        <!-- JS will populate this section -->
                     </div>
                 </div>
                 <div id="placeholderCard" class="bg-white/80 p-6 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-center h-full">
@@ -142,18 +132,16 @@
             </div>
         </div>
 
-        <!-- Footer -->
-        <footer class="text-center mt-12 text-gray-500 text-xs space-y-1">
-            <p>Developed by Dr Jake Turner.</p>
+        <footer class="text-center mt-12 text-gray-500 text-xs">
             <p>&copy; 2025 West Midlands Evidence Based Emergency Medicine Ltd. All rights reserved.</p>
-            <p>This is a commercial application. Unauthorised use, reproduction, or distribution is strictly prohibited.</p>
+            <p class="mt-1">Developed by Dr Jake Turner.</p>
+            <p class="mt-1">This is a commercial application. Unauthorised use, reproduction, or distribution is strictly prohibited.</p>
         </footer>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Element Cache
             const imageFileInput = document.getElementById('image-file-input');
             const fileNameDisplay = document.getElementById('fileName');
             const analyzeBtn = document.getElementById('analyzeBtn');
@@ -169,11 +157,7 @@
             
             let imageBase64 = null;
 
-            // Event Listeners
-            imageFileInput.addEventListener('change', handleImageUpload);
-            analyzeBtn.addEventListener('click', handleAction);
-
-            function handleImageUpload(event) {
+            imageFileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (file) {
                     fileNameDisplay.textContent = file.name;
@@ -181,17 +165,16 @@
                     reader.onload = (e) => { imageBase64 = e.target.result.split(',')[1]; };
                     reader.readAsDataURL(file);
                 }
-            }
+            });
 
-            async function handleAction() {
+            analyzeBtn.addEventListener('click', () => {
                 const currentMode = document.querySelector('[x-data]').__x.getUnwrappedData().mode;
-                
                 if (currentMode === 'image') {
-                    await handleOcr();
+                    handleOcr();
                 } else {
-                    await handleAnalysis();
+                    handleAnalysis();
                 }
-            }
+            });
             
             async function handleOcr() {
                 if (!imageBase64) {
@@ -208,16 +191,12 @@
                         body: JSON.stringify({ image: imageBase64 })
                     });
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(errorText);
-                    }
+                    if (!response.ok) { throw new Error(await response.text()); }
                     const extractedValues = await response.json();
                     
                     populateForm(extractedValues);
-                    imageModeBtn.classList.remove('bg-wmebem-blue', 'text-white');
-                    manualModeBtn.classList.add('bg-wmebem-blue', 'text-white');
-                    document.querySelector('[x-data]').__x.getUnwrappedData().mode = 'manual';
+                    const alpineComponent = document.querySelector('[x-data]').__x;
+                    alpineComponent.data.mode = 'manual';
 
                     showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
 
@@ -233,18 +212,17 @@
                 setLoadingState(true, "Analyzing...");
                 clearResults();
                 
-                let manualValues = getManualValues();
+                const manualValues = getManualValues();
                 if (!manualValues.ph || !manualValues.pco2) {
                     showError("Please enter at least pH and pCO₂ to perform analysis.");
                     setLoadingState(false);
                     return;
                 }
                 
-                let requestBody = {
-                    mode: 'manual',
+                const requestBody = {
+                    values: manualValues,
                     clinicalHistory: document.getElementById('clinicalHistory').value,
-                    sampleType: document.querySelector('input[name="sampleType"]:checked').value,
-                    values: manualValues
+                    sampleType: document.querySelector('input[name="sampleType"]:checked').value
                 };
 
                 try {
@@ -265,7 +243,7 @@
                     }
                     
                     const interpretation = await response.json();
-                    displayInterpretation(interpretation, manualValues);
+                    displayInterpretation(interpretation);
 
                 } catch (error) {
                     console.error("Analysis Error Details:", error);
@@ -285,8 +263,8 @@
                 });
             }
 
-            function displayInterpretation(interpretation, values) {
-                 let html = '';
+            function displayInterpretation(interpretation) {
+                let html = '';
                 if (interpretation.keyFindings) { html += `<div class="bg-blue-50 border border-wmebem-blue/30 p-4 rounded-xl"><h3 class="text-base font-semibold text-wmebem-navy mb-2">Key Findings</h3><div class="prose prose-lg max-w-none">${marked.parse(interpretation.keyFindings)}</div></div>`; }
                 if (interpretation.hhAnalysis) { html += `<div class="bg-gray-50 border p-4 rounded-xl"><h3 class="text-base font-semibold text-wmebem-navy mb-2">Henderson-Hasselbalch Analysis</h3><div class="prose prose-lg max-w-none">${marked.parse(interpretation.hhAnalysis)}</div></div>`; }
                 if (interpretation.stewartAnalysis) { html += `<div class="bg-gray-50 border p-4 rounded-xl"><h3 class="text-base font-semibold text-wmebem-navy mb-2">Stewart (Physicochemical) Analysis</h3><div class="prose prose-lg max-w-none">${marked.parse(interpretation.stewartAnalysis)}</div></div>`; }
@@ -304,19 +282,19 @@
                 const po2_val = parseFloat(document.getElementById('po2').value);
                 const po2_units = document.getElementById('po2_units').value;
                 return {
-                    ph: parseFloat(document.getElementById('ph').value),
-                    pco2: pco2_units === 'mmHg' ? (pco2_val / 7.5) : pco2_val,
-                    po2: po2_units === 'mmHg' ? (po2_val / 7.5) : po2_val,
-                    fio2: parseFloat(document.getElementById('fio2').value),
-                    hco3: parseFloat(document.getElementById('hco3').value), 
-                    sodium: parseFloat(document.getElementById('sodium').value), 
-                    potassium: parseFloat(document.getElementById('potassium').value), 
-                    chloride: parseFloat(document.getElementById('chloride').value), 
-                    albumin: parseFloat(document.getElementById('albumin').value), 
-                    lactate: parseFloat(document.getElementById('lactate').value), 
-                    glucose: parseFloat(document.getElementById('glucose').value), 
-                    calcium: parseFloat(document.getElementById('calcium').value), 
-                    hb: parseFloat(document.getElementById('hb').value)
+                    ph: parseFloat(document.getElementById('ph').value) || null,
+                    pco2: pco2_units === 'mmHg' ? (pco2_val / 7.5) : pco2_val || null,
+                    po2: po2_units === 'mmHg' ? (po2_val / 7.5) : po2_val || null,
+                    fio2: parseFloat(document.getElementById('fio2').value) || null,
+                    hco3: parseFloat(document.getElementById('hco3').value) || null,
+                    sodium: parseFloat(document.getElementById('sodium').value) || null,
+                    potassium: parseFloat(document.getElementById('potassium').value) || null,
+                    chloride: parseFloat(document.getElementById('chloride').value) || null,
+                    albumin: parseFloat(document.getElementById('albumin').value) || null,
+                    lactate: parseFloat(document.getElementById('lactate').value) || null,
+                    glucose: parseFloat(document.getElementById('glucose').value) || null,
+                    calcium: parseFloat(document.getElementById('calcium').value) || null,
+                    hb: parseFloat(document.getElementById('hb').value) || null
                 };
             }
 
@@ -325,8 +303,6 @@
                 analyzeBtn.classList.toggle('opacity-75', isLoading);
                 if(isLoading) {
                     analyzeBtnText.textContent = text;
-                } else {
-                    // The button text is now handled by AlpineJS, so we don't need to reset it here
                 }
                 loader.classList.toggle('hidden', !isLoading);
             }
@@ -346,7 +322,7 @@
             
             function showInfo(message) {
                 clearResults();
-                resultsContainer.innerHTML = `<div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md" role="alert"><p class="font-bold">Action Required</p><p>${message}</p></div>`;
+                resultsContainer.innerHTML = `<div class="bg-blue-100 border-l-4 border-wmebem-blue text-wmebem-navy p-4 rounded-md" role="alert"><p class="font-bold">Action Required</p><p>${message}</p></div>`;
                 resultsCard.classList.remove('hidden');
                 placeholderCard.classList.add('hidden');
             }
@@ -358,9 +334,7 @@
                     setTimeout(() => { copyBtnText.textContent = 'Copy for Records'; }, 2000);
                 });
             });
-
         });
     </script>
 </body>
 </html>
-
