@@ -171,15 +171,7 @@
             let imageBase64 = null;
 
             // --- Event Listeners ---
-            imageFileInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    fileNameDisplay.textContent = file.name;
-                    const reader = new FileReader();
-                    reader.onload = (e) => { imageBase64 = e.target.result.split(',')[1]; };
-                    reader.readAsDataURL(file);
-                }
-            });
+            imageFileInput.addEventListener('change', handleImageUpload);
 
             window.handleAction = async (currentMode) => {
                 if (currentMode === 'image') {
@@ -195,6 +187,8 @@
                     input.classList.remove('input-error');
                 });
                 clearResults();
+                fileNameDisplay.textContent = 'PNG, JPG, GIF';
+                imageBase64 = null;
             });
 
             pco2Units.addEventListener('change', updateUnitDisplay);
@@ -207,6 +201,47 @@
             });
             
             // --- Core Functions ---
+            function handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                fileNameDisplay.textContent = file.name;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const MAX_WIDTH = 1024;
+                        const MAX_HEIGHT = 1024;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        imageBase64 = dataUrl.split(',')[1];
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
             async function handleOcr() {
                 if (!imageBase64) {
                     showError("Please upload an image to read.");
@@ -222,27 +257,24 @@
                         body: JSON.stringify({ image: imageBase64 })
                     });
 
-                    if (!response.ok) { 
-                        const errText = await response.text();
-                        throw new Error(errText || "Server responded with an error.");
-                    }
+                    if (!response.ok) { throw new Error(await response.text()); }
                     const extractedValues = await response.json();
                     
+                    if(Object.values(extractedValues).every(v => v === null)){
+                        throw new Error("OCR could not read any values from the image. Please ensure the image is clear and well-lit.");
+                    }
+
                     populateForm(extractedValues);
                     manualModeBtn.click();
                     showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
                 } catch (error) {
                     console.error("OCR Error Details:", error);
-                    let displayMessage = `Failed to read image. Please try again or enter values manually.`;
-                    if(error.message) {
-                        try {
-                           const parsedError = JSON.parse(error.message);
-                           displayMessage += ` Error: ${parsedError.error || error.message}`;
-                        } catch(e) {
-                           displayMessage += ` Error: ${error.message}`;
-                        }
-                    }
-                    showError(displayMessage);
+                    let errorMessage = error.message;
+                    try {
+                        const parsedError = JSON.parse(errorMessage);
+                        errorMessage = parsedError.error || errorMessage;
+                    } catch(e) { /* It wasn't JSON, use raw message */ }
+                    showError(`Failed to read image. ${errorMessage}`);
                 } finally {
                     setLoadingState(false);
                 }
@@ -260,7 +292,7 @@
                 }
                 
                 const requestBody = {
-                    mode: 'manual', 
+                    mode: 'manual',
                     values: manualValues,
                     clinicalHistory: document.getElementById('clinicalHistory').value,
                     sampleType: document.querySelector('input[name="sampleType"]:checked').value
