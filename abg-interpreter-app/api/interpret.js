@@ -25,7 +25,7 @@ export default async (req, context) => {
 
     try {
         // 3. Get the data from the front-end request.
-        const { mode, values, clinicalHistory, sampleType, image } = await req.json();
+        const { values, clinicalHistory, sampleType } = await req.json();
         
         // This function is now only used for manual interpretation
         const buildManualPrompt = (vals, history, type) => {
@@ -83,7 +83,6 @@ Here are the instructions for the content of each key:
         
         const cleanedJsonString = jsonString.replace(/^```json\n?/, '').replace(/\n?```$/, '');
         
-        // We don't parse it here, just send the clean string back
         return new Response(cleanedJsonString, {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
@@ -97,4 +96,3 @@ Here are the instructions for the content of each key:
         });
     }
 };
-
