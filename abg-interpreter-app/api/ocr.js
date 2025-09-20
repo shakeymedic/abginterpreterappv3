@@ -1,4 +1,4 @@
-// This is a Node.js serverless function dedicated to fast OCR.
+// This is a Node.js serverless function dedicated to fast, robust OCR.
 // It is designed to be deployed on platforms like Netlify or Vercel.
 
 export default async (req, context) => {
@@ -25,15 +25,17 @@ export default async (req, context) => {
         // 3. Get the image data from the front-end request.
         const { image } = await req.json();
         
-        // 4. A very specific, fast prompt for OCR only.
+        // 4. A more robust and specific prompt for OCR.
         const systemPrompt = `You are an Optical Character Recognition (OCR) engine specialized for medical lab reports.
 Your task is to extract specific blood gas and electrolyte values from the provided image.
+You MUST ignore any non-numeric characters attached to the values, such as (+), (-), #, or any other symbols. Extract only the number.
 You MUST return your response as a single, valid JSON object. Do not include any text or markdown formatting.
 The JSON object should contain keys for "ph", "pco2", "po2", "hco3", "sodium", "potassium", "chloride", "albumin", "lactate", "glucose", "calcium", "hb".
-The value for each key must be the extracted number. If a value is not found in the image, the value should be null.
-For pCO2 and pO2, assume the primary units are kPa unless mmHg is explicitly stated. Return only the numerical value.`;
+The value for each key must be the extracted number. If a value is not found in the image, the value for its key should be null.
+For pCO2 and pO2, assume the primary units are kPa unless mmHg is explicitly stated. Return only the numerical value.
+Search the entire document for values, including sections like "Metabolites" for "Glu" (glucose). The value for "hb" can be found from "tHb". The value for "hco3" should be taken from "cHCO3" or "HCO3st".`;
 
-        const userPrompt = `Extract the blood gas values from this image and return them as a JSON object.`;
+        const userPrompt = `Extract the blood gas values from this image and return them as a clean JSON object of numbers.`;
 
         let requestPayload = {
             contents: [{ parts: [{ text: userPrompt }, { inlineData: { mimeType: "image/jpeg", data: image } }] }],
@@ -82,3 +84,4 @@ For pCO2 and pO2, assume the primary units are kPa unless mmHg is explicitly sta
         });
     }
 };
+
