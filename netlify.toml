@@ -1,17 +1,18 @@
-# Netlify Configuration File (Corrected Version)
-
+Netlify Configuration File
+This file provides the definitive build and deployment instructions for your site.
 [build]
-  # This tells Netlify where our site's folder is.
-  base = "abg-interpreter-app"
-  
-  # This tells Netlify that inside that folder, the index.html is at the top level.
-  publish = "."
-  
-  # This tells Netlify where the functions are, inside the base folder.
-  functions = "api"
 
-# This part tells the live site how to find the functions.
+Publish directory: This tells Netlify which folder contains your final website files (index.html).
+Your site is located in the "abg-interpreter-app" folder in your repository.
+publish = "abg-interpreter-app"
+
+Functions directory: This tells Netlify where your back-end serverless functions (ocr.js, interpret.js) are.
+Your "api" folder is inside the "abg-interpreter-app" folder.
+functions = "abg-interpreter-app/api"
+
+This section is crucial. It tells the live website how to find your back-end functions.
+It redirects any request for "/api/..." to the correct Netlify functions path.
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+from = "/api/*"
+to = "/.netlify/functions/:splat"
+status = 200
