@@ -1,6 +1,6 @@
 // This is a Node.js serverless function that acts as a secure proxy.
 // It is designed to be deployed on platforms like Netlify or Vercel.
-// OPTIMISED VERSION - Aims for faster response time.
+// HYPER-OPTIMISED VERSION - Aims for response time under 10 seconds.
 
 export default async (req, context) => {
     // 1. We only accept POST requests.
@@ -27,7 +27,7 @@ export default async (req, context) => {
         const { mode, values, clinicalHistory, sampleType, image } = await req.json();
         
         const buildManualPrompt = (vals, history, type) => {
-            let prompt = `Please interpret the following blood gas results.\nClinical History: ${history || 'Not provided'}\nSample Type: ${type}\n\nValues (all in standard SI units, gases in kPa):\n`;
+            let prompt = `Interpret these blood gas results.\nHistory: ${history || 'None'}\nType: ${type}\n\nValues (SI units, kPa):\n`;
             for (const [key, value] of Object.entries(vals)) {
                 if (value !== null && !isNaN(value)) {
                     prompt += `- ${key}: ${value}\n`;
@@ -37,25 +37,24 @@ export default async (req, context) => {
         };
 
         const buildImagePrompt = (vals, history, type) => {
-            let prompt = `First, perform OCR on the provided image of a blood gas report. Then, using the extracted values and the provided clinical information below, perform a full interpretation.\n`;
+            let prompt = `Perform OCR on the image and interpret the extracted blood gas values.\n`;
             if (vals && vals.fio2 && !isNaN(vals.fio2)) {
-                prompt += `The manually entered FiO2 is ${vals.fio2}%.\n`;
+                prompt += `Manually entered FiO2: ${vals.fio2}%.\n`;
             }
-            prompt += `Clinical History: ${history || 'Not provided'}\nSample Type: ${type}\nFollow the structured analysis format provided in the system instructions.`;
+            prompt += `History: ${history || 'None'}\nType: ${type}\nFollow the required JSON output format.`;
             return prompt;
         };
         
-        // This is the new, streamlined system prompt.
-        const systemPrompt = `You are an expert UK-based clinical biochemist and intensive care consultant advising an emergency medicine doctor. Your task is to interpret blood gas results.
-You MUST return your response as a single, valid JSON object. Do not include any text or markdown formatting before or after the JSON object.
-The JSON object must have the following keys: "keyFindings", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
-The value for each key must be a string containing clear, well-structured Markdown.
+        // This is the new, hyper-streamlined system prompt for maximum speed.
+        const systemPrompt = `You are an expert UK-based clinical biochemist. Interpret blood gas results and return a single, valid JSON object with no other text.
+The JSON object must have keys: "keyFindings", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
+The value for each key must be a Markdown string. Be concise and fast.
 
-- "keyFindings": A concise, one-paragraph summary of the overall picture. Then, provide a bulleted list of the 2-3 most likely differential diagnoses based on the results and clinical history.
-- "hhAnalysis": Perform a Henderson-Hasselbalch Analysis. Identify the primary disorder, assess compensation (using Winter's formula for metabolic acidosis), calculate and interpret the Anion Gap (AG) = (Na⁺ + K⁺) - (Cl⁻ + HCO₃⁻), and the albumin-corrected AG = AG + 0.25 * (40 - Albumin). State the normal ranges for each value in brackets.
-- "stewartAnalysis": Perform a Stewart (Physicochemical) Analysis. Calculate SIDa = (Na⁺ + K⁺) - Cl⁻, estimate SIDe ≈ HCO₃⁻ + [Albumin⁻] where [Albumin⁻] = Albumin (g/L) * (0.123 * pH - 0.631), and calculate SIG = SIDa - SIDe.
-- "additionalCalculations": If FiO₂ is provided and the sample is arterial, calculate and interpret the PaO₂/FiO₂ (P/F) Ratio. Formula: P/F Ratio = (PaO₂ in mmHg) / (FiO₂ / 100). Note: 1 kPa = 7.5 mmHg.
-- "differentials": Provide a comprehensive bulleted list of potential differential diagnoses. **Bold the most likely diagnosis** and suggest a single, critical next step in *italics*.`;
+- "keyFindings": 1-paragraph summary and the top 3 differentials.
+- "hhAnalysis": Henderson-Hasselbalch analysis. State primary disorder, compensation, Anion Gap, and albumin-corrected AG. Include normal ranges.
+- "stewartAnalysis": Stewart analysis. State SIDa, SIDe, and SIG.
+- "additionalCalculations": If arterial with FiO₂, calculate and interpret the P/F Ratio.
+- "differentials": A comprehensive bulleted list of differentials. State the most likely diagnosis first.`;
 
         let userPrompt;
         let requestPayload;
