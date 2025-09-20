@@ -107,7 +107,7 @@
                              <div class="sm:col-span-2"><label for="clinicalHistory" class="text-sm font-medium text-gray-text">Clinical History</label><textarea id="clinicalHistory" rows="3" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 78 y/o female with COPD..."></textarea></div>
                         </div>
 
-                        <div class="pt-4"><button id="analyzeBtn" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
+                        <div class="pt-4"><button id="analyzeBtn" @click="handleAction(mode)" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
                     </div>
                 </div>
             </div>
