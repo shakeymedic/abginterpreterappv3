@@ -62,7 +62,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-6xl mx-auto">
             <!-- Left Column: Inputs -->
-            <div class="lg-col-span-2">
+            <div class="lg:col-span-2">
                 <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200/80 sticky top-8">
                     
                     <h2 class="text-xl font-bold text-wmebem-navy mb-4 border-b pb-4">Patient Data</h2>
@@ -222,7 +222,10 @@
                         body: JSON.stringify({ image: imageBase64 })
                     });
 
-                    if (!response.ok) { throw new Error(await response.text()); }
+                    if (!response.ok) { 
+                        const errText = await response.text();
+                        throw new Error(errText || "Server responded with an error.");
+                    }
                     const extractedValues = await response.json();
                     
                     populateForm(extractedValues);
@@ -230,7 +233,16 @@
                     showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
                 } catch (error) {
                     console.error("OCR Error Details:", error);
-                    showError(`Failed to read image. Please try again or enter values manually. Error: ${error.message}`);
+                    let displayMessage = `Failed to read image. Please try again or enter values manually.`;
+                    if(error.message) {
+                        try {
+                           const parsedError = JSON.parse(error.message);
+                           displayMessage += ` Error: ${parsedError.error || error.message}`;
+                        } catch(e) {
+                           displayMessage += ` Error: ${error.message}`;
+                        }
+                    }
+                    showError(displayMessage);
                 } finally {
                     setLoadingState(false);
                 }
@@ -247,9 +259,8 @@
                     return;
                 }
                 
-                // *** THIS IS THE FIX: Added 'mode: "manual"' to the request body ***
                 const requestBody = {
-                    mode: 'manual', // This was the missing field
+                    mode: 'manual', 
                     values: manualValues,
                     clinicalHistory: document.getElementById('clinicalHistory').value,
                     sampleType: document.querySelector('input[name="sampleType"]:checked').value
