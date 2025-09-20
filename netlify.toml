@@ -1,12 +1,16 @@
-# Netlify Configuration File
+# Netlify Configuration File (Corrected Version)
 
 [build]
-  # This tells Netlify that our entire site, including the API folder,
-  # lives inside the "abg-interpreter-app" directory.
-  base    = "abg-interpreter-app"
-  publish = "abg-interpreter-app"
-  functions = "abg-interpreter-app/api"
+  # This tells Netlify where our site's folder is.
+  base = "abg-interpreter-app"
+  
+  # This tells Netlify that inside that folder, the index.html is at the top level.
+  publish = "."
+  
+  # This tells Netlify where the functions are, inside the base folder.
+  functions = "api"
 
+# This part tells the live site how to find the functions.
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
