@@ -107,7 +107,7 @@
                              <div class="sm:col-span-2"><label for="clinicalHistory" class="text-sm font-medium text-gray-text">Clinical History</label><textarea id="clinicalHistory" rows="3" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., 78 y/o female with COPD..."></textarea></div>
                         </div>
 
-                        <div class="pt-4"><button id="analyzeBtn" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
+                        <div class="pt-4"><button id="analyzeBtn" @click="handleAction(mode)" class="w-full flex items-center justify-center py-3 px-4 bg-wmebem-navy text-white font-semibold rounded-lg shadow-md hover:bg-wmebem-navy/90 transition-colors"><span id="analyzeBtnText" x-text="mode === 'manual' ? 'Analyze' : 'Read Image'">Analyze</span><div id="loader" class="hidden loader w-5 h-5 ml-3 border-2 rounded-full"></div></button></div>
                     </div>
                 </div>
             </div>
@@ -117,7 +117,7 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-wmebem-navy">Interpretation</h2>
                         <button id="copyBtn" class="flex items-center gap-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-text py-2 px-3 rounded-lg transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 S0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             <span id="copyBtnText">Copy for Records</span>
                         </button>
                     </div>
@@ -141,7 +141,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('alpine:init', () => {
             const imageFileInput = document.getElementById('image-file-input');
             const fileNameDisplay = document.getElementById('fileName');
             const analyzeBtn = document.getElementById('analyzeBtn');
@@ -150,8 +150,6 @@
             const resultsCard = document.getElementById('resultsCard');
             const placeholderCard = document.getElementById('placeholderCard');
             const resultsContainer = document.getElementById('resultsContainer');
-            const manualModeBtn = document.getElementById('manualModeBtn');
-            const imageModeBtn = document.getElementById('imageModeBtn');
             const copyBtn = document.getElementById('copyBtn');
             const copyBtnText = document.getElementById('copyBtnText');
             
@@ -167,14 +165,13 @@
                 }
             });
 
-            analyzeBtn.addEventListener('click', () => {
-                const currentMode = document.querySelector('[x-data]').__x.getUnwrappedData().mode;
+            window.handleAction = async (currentMode) => {
                 if (currentMode === 'image') {
-                    handleOcr();
+                    await handleOcr();
                 } else {
-                    handleAnalysis();
+                    await handleAnalysis();
                 }
-            });
+            }
             
             async function handleOcr() {
                 if (!imageBase64) {
@@ -202,7 +199,7 @@
 
                 } catch (error) {
                     console.error("OCR Error Details:", error);
-                    showError(`Failed to read image: ${error.message}. Please try again or enter values manually.`);
+                    showError(`Failed to read image. Please try again or enter values manually. Error: ${error.message}`);
                 } finally {
                     setLoadingState(false);
                 }
@@ -283,8 +280,8 @@
                 const po2_units = document.getElementById('po2_units').value;
                 return {
                     ph: parseFloat(document.getElementById('ph').value) || null,
-                    pco2: pco2_units === 'mmHg' ? (pco2_val / 7.5) : pco2_val || null,
-                    po2: po2_units === 'mmHg' ? (po2_val / 7.5) : po2_val || null,
+                    pco2: isNaN(pco2_val) ? null : (pco2_units === 'mmHg' ? (pco2_val / 7.5) : pco2_val),
+                    po2: isNaN(po2_val) ? null : (po2_units === 'mmHg' ? (po2_val / 7.5) : po2_val),
                     fio2: parseFloat(document.getElementById('fio2').value) || null,
                     hco3: parseFloat(document.getElementById('hco3').value) || null,
                     sodium: parseFloat(document.getElementById('sodium').value) || null,
@@ -338,3 +335,4 @@
     </script>
 </body>
 </html>
+
