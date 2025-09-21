@@ -5,11 +5,14 @@ functions = "netlify/functions"
 [[edge_functions]]
 function = "start-ocr"
 path = "/api/start-ocr"
+external_node_modules = ["netlify:kv"]
 
 [[edge_functions]]
 function = "start-analysis"
 path = "/api/start-analysis"
+external_node_modules = ["netlify:kv"]
 
 [[edge_functions]]
 function = "check-status"
 path = "/api/check-status"
+external_node_modules = ["netlify:kv"]
