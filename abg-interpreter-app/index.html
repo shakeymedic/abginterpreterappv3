@@ -165,10 +165,9 @@
             const allInputs = document.querySelectorAll('#inputForm input, #inputForm textarea');
             const pco2Units = document.getElementById('pco2_units');
             const po2Units = document.getElementById('po2_units');
-            const pco2Range = document.getElementById('pco2-range');
-            const po2Range = document.getElementById('po2-range');
-
+            
             let imageBase64 = null;
+            let pollingInterval;
 
             // --- Event Listeners ---
             imageFileInput.addEventListener('change', handleImageUpload);
@@ -217,15 +216,9 @@
                         let height = img.height;
 
                         if (width > height) {
-                            if (width > MAX_WIDTH) {
-                                height *= MAX_WIDTH / width;
-                                width = MAX_WIDTH;
-                            }
+                            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
                         } else {
-                            if (height > MAX_HEIGHT) {
-                                width *= MAX_HEIGHT / height;
-                                height = MAX_HEIGHT;
-                            }
+                            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
                         }
 
                         const canvas = document.createElement('canvas');
@@ -268,62 +261,89 @@
                     manualModeBtn.click();
                     showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
                 } catch (error) {
-                    console.error("OCR Error Details:", error);
                     let errorMessage = error.message;
-                    try {
-                        const parsedError = JSON.parse(errorMessage);
-                        errorMessage = parsedError.error || errorMessage;
-                    } catch(e) { /* It wasn't JSON, use raw message */ }
+                    try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch(e) { /* use raw message */ }
                     showError(`Failed to read image. ${errorMessage}`);
                 } finally {
                     setLoadingState(false);
                 }
             }
-
+            
             async function handleAnalysis() {
                 setLoadingState(true, "Analyzing...");
                 clearResults();
-                
+                showInfo("Analysis submitted. This may take up to a minute for complex cases. Please wait...");
+
                 const manualValues = getManualValues();
                 if (!manualValues.ph || !manualValues.pco2) {
                     showError("Please enter at least pH and pCO₂ to perform analysis.");
                     setLoadingState(false);
                     return;
                 }
-                
-                const requestBody = {
-                    mode: 'manual',
-                    values: manualValues,
-                    clinicalHistory: document.getElementById('clinicalHistory').value,
-                    sampleType: document.querySelector('input[name="sampleType"]:checked').value
-                };
 
                 try {
-                    const response = await fetch('/api/interpret', {
+                    const startResponse = await fetch('/api/start-analysis', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(requestBody)
+                        body: JSON.stringify({
+                            values: manualValues,
+                            clinicalHistory: document.getElementById('clinicalHistory').value,
+                            sampleType: document.querySelector('input[name="sampleType"]:checked').value
+                        })
                     });
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        let displayError = errorText;
-                        try {
-                            const errorJson = JSON.parse(errorText);
-                            displayError = errorJson.error || JSON.stringify(errorJson);
-                        } catch (e) { /* use raw text */ }
-                        throw new Error(displayError);
-                    }
-                    
-                    const interpretation = await response.json();
-                    displayInterpretation(interpretation);
+                    if (!startResponse.ok) { throw new Error(await startResponse.text()); }
+                    const { jobId } = await startResponse.json();
+
+                    // Start polling for the result
+                    pollForResult(jobId);
+
                 } catch (error) {
-                    console.error("Analysis Error Details:", error);
-                    showError(`An error occurred during analysis: ${error.message || 'Please check the server logs for more details.'}`);
-                } finally {
+                    let errorMessage = error.message;
+                    try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch (e) {}
+                    showError(`Failed to start analysis: ${errorMessage}`);
                     setLoadingState(false);
                 }
             }
+
+            function pollForResult(jobId) {
+                let attempts = 0;
+                pollingInterval = setInterval(async () => {
+                    if (attempts >= 20) { // 60 second timeout
+                        clearInterval(pollingInterval);
+                        showError("Analysis timed out. The server is taking too long to respond. Please try again later.");
+                        setLoadingState(false);
+                        return;
+                    }
+                    try {
+                        const statusResponse = await fetch(`/api/check-status?id=${jobId}`);
+                        if (!statusResponse.ok) {
+                            // Don't throw, just log it and continue polling
+                            console.error(`Polling failed with status: ${statusResponse.status}`);
+                            return;
+                        }
+                        
+                        const result = await statusResponse.json();
+                        
+                        if (result.status === 'complete') {
+                            clearInterval(pollingInterval);
+                            setLoadingState(false);
+                            displayInterpretation(result.data);
+                        } else if (result.status === 'failed') {
+                            clearInterval(pollingInterval);
+                            setLoadingState(false);
+                            showError(`Analysis failed: ${result.error}`);
+                        }
+                        // If status is 'pending', do nothing and wait for the next interval
+                    } catch (error) {
+                        // Don't throw, just log it and continue polling
+                        console.error("Error during polling:", error);
+                    } finally {
+                        attempts++;
+                    }
+                }, 3000); // Poll every 3 seconds
+            }
+
 
             // --- Helper Functions ---
             function populateForm(values) {
@@ -381,12 +401,14 @@
             }
             
             function clearResults() {
+                clearInterval(pollingInterval);
                 resultsContainer.innerHTML = '';
                 resultsCard.classList.add('hidden');
                 placeholderCard.classList.remove('hidden');
             }
 
             function showError(message) {
+                clearInterval(pollingInterval);
                 clearResults();
                 resultsContainer.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p class="font-bold">Error</p><p>${message}</p></div>`;
                 resultsCard.classList.remove('hidden');
@@ -410,12 +432,10 @@
 
                 if (isKpa) {
                     rangeEl.textContent = `(${kpaMin}-${kpaMax} kPa)`;
-                    inputEl.placeholder = (kpaMin + kpaMax) / 2;
                 } else {
                     const mmhgMin = (kpaMin * 7.5).toFixed(0);
                     const mmhgMax = (kpaMax * 7.5).toFixed(0);
                     rangeEl.textContent = `(${mmhgMin}-${mmhgMax} mmHg)`;
-                    inputEl.placeholder = (parseFloat(mmhgMin) + parseFloat(mmhgMax)) / 2;
                 }
             }
 
