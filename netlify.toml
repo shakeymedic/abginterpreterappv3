@@ -1,8 +1,5 @@
 [build]
-
 publish = "abg-interpreter-app"
-
-functions = "abg-interpreter-app/api"
 
 [functions]
 directory = "netlify/functions"
