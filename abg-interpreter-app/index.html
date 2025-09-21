@@ -250,10 +250,19 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ image: imageBase64 })
                     });
-
-                    if (!startResponse.ok) { throw new Error(await startResponse.text()); }
+                    
+                    // *** ENHANCED ERROR HANDLING BLOCK ***
+                    if (!startResponse.ok) {
+                        if (startResponse.status === 404) {
+                            throw new Error("The OCR function was not found on the server. Please check the project's file structure in GitHub.");
+                        }
+                        const errorText = await startResponse.text();
+                        throw new Error(errorText || `The server returned an error: ${startResponse.status}`);
+                    }
+                    
                     const { jobId } = await startResponse.json();
                     pollForResult(jobId, 'ocr');
+
                 } catch (error) {
                     let errorMessage = error.message;
                     try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch (e) {}
@@ -285,7 +294,12 @@
                         })
                     });
 
-                    if (!startResponse.ok) { throw new Error(await startResponse.text()); }
+                    if (!startResponse.ok) { 
+                         if (startResponse.status === 404) {
+                            throw new Error("The analysis function was not found on the server. Please check the project's file structure in GitHub.");
+                        }
+                        throw new Error(await startResponse.text());
+                    }
                     const { jobId } = await startResponse.json();
                     pollForResult(jobId, 'analysis');
                 } catch (error) {
@@ -308,14 +322,14 @@
                     }
                     try {
                         const statusResponse = await fetch(`/api/check-status?id=${jobId}`);
-                        if (statusResponse.status === 404 && attempts < 5) { // Grace period for KV store to update
+                        if (statusResponse.status === 404 && attempts < 5) {
                              console.log("Job not found, retrying...");
                              attempts++;
                              return;
                         }
                         if (!statusResponse.ok) {
                             console.error(`Polling failed with status: ${statusResponse.status}`);
-                            return; // Continue polling
+                            return; 
                         }
                         
                         const result = await statusResponse.json();
@@ -339,13 +353,12 @@
                             setLoadingState(false);
                             showError(`The ${jobType} process failed: ${result.error}`);
                         }
-                        // If status is 'pending', do nothing and wait for the next interval
                     } catch (error) {
                         console.error("Error during polling:", error);
                     } finally {
                         attempts++;
                     }
-                }, 3000); // Poll every 3 seconds
+                }, 3000); 
             }
 
 
