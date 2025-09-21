@@ -1,15 +1,13 @@
 [build]
-publish = "abg-interpreter-app"
-functions = "netlify/functions"
+  publish = "abg-interpreter-app"
+  functions = "netlify/functions"
 
-[[edge_functions]]
-function = "start-ocr"
-path = "/api/start-ocr"
+[build.environment]
+  NODE_VERSION = "18"
 
-[[edge_functions]]
-function = "start-analysis"
-path = "/api/start-analysis"
-
-[[edge_functions]]
-function = "check-status"
-path = "/api/check-status"
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
