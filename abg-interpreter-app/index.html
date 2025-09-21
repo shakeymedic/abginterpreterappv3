@@ -318,7 +318,6 @@
                     try {
                         const statusResponse = await fetch(`/api/check-status?id=${jobId}`);
                         if (!statusResponse.ok) {
-                            // Don't throw, just log it and continue polling
                             console.error(`Polling failed with status: ${statusResponse.status}`);
                             return;
                         }
@@ -334,14 +333,12 @@
                             setLoadingState(false);
                             showError(`Analysis failed: ${result.error}`);
                         }
-                        // If status is 'pending', do nothing and wait for the next interval
                     } catch (error) {
-                        // Don't throw, just log it and continue polling
                         console.error("Error during polling:", error);
                     } finally {
                         attempts++;
                     }
-                }, 3000); // Poll every 3 seconds
+                }, 3000);
             }
 
 
