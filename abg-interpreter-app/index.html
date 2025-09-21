@@ -242,29 +242,22 @@
                 }
                 setLoadingState(true, "Reading Image...");
                 clearResults();
+                showInfo("Reading image. This may take up to a minute for complex photos. Please wait...");
 
                 try {
-                    const response = await fetch('/api/ocr', {
+                    const startResponse = await fetch('/api/start-ocr', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ image: imageBase64 })
                     });
 
-                    if (!response.ok) { throw new Error(await response.text()); }
-                    const extractedValues = await response.json();
-                    
-                    if(Object.values(extractedValues).every(v => v === null)){
-                        throw new Error("OCR could not read any values from the image. Please ensure the image is clear and well-lit.");
-                    }
-
-                    populateForm(extractedValues);
-                    manualModeBtn.click();
-                    showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
+                    if (!startResponse.ok) { throw new Error(await startResponse.text()); }
+                    const { jobId } = await startResponse.json();
+                    pollForResult(jobId, 'ocr');
                 } catch (error) {
                     let errorMessage = error.message;
-                    try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch(e) { /* use raw message */ }
-                    showError(`Failed to read image. ${errorMessage}`);
-                } finally {
+                    try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch (e) {}
+                    showError(`Failed to start reading image: ${errorMessage}`);
                     setLoadingState(false);
                 }
             }
@@ -294,10 +287,7 @@
 
                     if (!startResponse.ok) { throw new Error(await startResponse.text()); }
                     const { jobId } = await startResponse.json();
-
-                    // Start polling for the result
-                    pollForResult(jobId);
-
+                    pollForResult(jobId, 'analysis');
                 } catch (error) {
                     let errorMessage = error.message;
                     try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch (e) {}
@@ -306,20 +296,26 @@
                 }
             }
 
-            function pollForResult(jobId) {
+            function pollForResult(jobId, jobType) {
                 let attempts = 0;
+                const maxAttempts = 20; // 60 second timeout
                 pollingInterval = setInterval(async () => {
-                    if (attempts >= 20) { // 60 second timeout
+                    if (attempts >= maxAttempts) {
                         clearInterval(pollingInterval);
-                        showError("Analysis timed out. The server is taking too long to respond. Please try again later.");
+                        showError("Request timed out. The server is taking too long to respond. Please try again later.");
                         setLoadingState(false);
                         return;
                     }
                     try {
                         const statusResponse = await fetch(`/api/check-status?id=${jobId}`);
+                        if (statusResponse.status === 404 && attempts < 5) { // Grace period for KV store to update
+                             console.log("Job not found, retrying...");
+                             attempts++;
+                             return;
+                        }
                         if (!statusResponse.ok) {
                             console.error(`Polling failed with status: ${statusResponse.status}`);
-                            return;
+                            return; // Continue polling
                         }
                         
                         const result = await statusResponse.json();
@@ -327,18 +323,29 @@
                         if (result.status === 'complete') {
                             clearInterval(pollingInterval);
                             setLoadingState(false);
-                            displayInterpretation(result.data);
+                            if(jobType === 'ocr') {
+                                if(Object.values(result.data).every(v => v === null)){
+                                    showError("OCR could not read any values from the image. Please ensure the image is clear and well-lit.");
+                                } else {
+                                    populateForm(result.data);
+                                    manualModeBtn.click();
+                                    showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
+                                }
+                            } else {
+                                displayInterpretation(result.data);
+                            }
                         } else if (result.status === 'failed') {
                             clearInterval(pollingInterval);
                             setLoadingState(false);
-                            showError(`Analysis failed: ${result.error}`);
+                            showError(`The ${jobType} process failed: ${result.error}`);
                         }
+                        // If status is 'pending', do nothing and wait for the next interval
                     } catch (error) {
                         console.error("Error during polling:", error);
                     } finally {
                         attempts++;
                     }
-                }, 3000);
+                }, 3000); // Poll every 3 seconds
             }
 
 
