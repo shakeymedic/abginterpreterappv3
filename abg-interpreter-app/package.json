@@ -1,8 +1,0 @@
-{
-  "name": "wmebem-abg-interpreter-backend",
-  "version": "1.0.0",
-  "description": "Backend functions for the WMEBEM ABG Interpreter.",
-  "dependencies": {
-    "uuid": "^9.0.1"
-  }
-}
