@@ -2,16 +2,14 @@
 publish = "abg-interpreter-app"
 functions = "netlify/functions"
 
-[[redirects]]
-from = "/api/check-status"
-to = "/.netlify/functions/check-status"
-status = 200
-
-[[redirects]]
-from = "/api/start-analysis"
-to = "/.netlify/functions/start-analysis"
-status = 200
-
 [[edge_functions]]
 function = "start-ocr"
 path = "/api/start-ocr"
+
+[[edge_functions]]
+function = "start-analysis"
+path = "/api/start-analysis"
+
+[[edge_functions]]
+function = "check-status"
+path = "/api/check-status"
