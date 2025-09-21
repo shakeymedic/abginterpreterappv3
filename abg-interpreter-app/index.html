@@ -167,11 +167,9 @@
             const po2Units = document.getElementById('po2_units');
             
             let imageBase64 = null;
-            let pollingInterval;
 
             // --- Event Listeners ---
             imageFileInput.addEventListener('change', handleImageUpload);
-
             window.handleAction = async (currentMode) => {
                 if (currentMode === 'image') {
                     await handleOcr();
@@ -179,7 +177,6 @@
                     await handleAnalysis();
                 }
             }
-
             clearBtn.addEventListener('click', () => {
                 allInputs.forEach(input => {
                     input.value = '';
@@ -189,10 +186,8 @@
                 fileNameDisplay.textContent = 'PNG, JPG, GIF';
                 imageBase64 = null;
             });
-
             pco2Units.addEventListener('change', updateUnitDisplay);
             po2Units.addEventListener('change', updateUnitDisplay);
-
             allInputs.forEach(input => {
                 if(input.type === 'number') {
                     input.addEventListener('input', validateInput);
@@ -226,7 +221,6 @@
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-
                         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
                         imageBase64 = dataUrl.split(',')[1];
                     };
@@ -242,22 +236,40 @@
                 }
                 setLoadingState(true, "Reading Image...");
                 clearResults();
-                showInfo("Reading image. This may take up to a minute for complex photos. Please wait...");
+                showInfo("Reading image. This may take up to a minute. Please wait...");
 
                 try {
-                    const startResponse = await fetch('/api/start-ocr', {
+                    const response = await fetch('/api/ocr', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ image: imageBase64 })
                     });
 
-                    if (!startResponse.ok) { throw new Error(await startResponse.text()); }
-                    const { jobId } = await startResponse.json();
-                    pollForResult(jobId, 'ocr');
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText || "The server returned an error.");
+                    }
+                    
+                    const extractedValues = await response.json();
+                    
+                    if(Object.values(extractedValues).every(v => v === null)){
+                        throw new Error("OCR could not read any values from the image. Please ensure the image is clear and well-lit.");
+                    }
+
+                    populateForm(extractedValues);
+                    manualModeBtn.click();
+                    showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
                 } catch (error) {
-                    let errorMessage = error.message;
-                    try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch (e) {}
-                    showError(`Failed to start reading image: ${errorMessage}`);
+                    let errorMessage = "An unknown error occurred.";
+                    if (error && error.message) {
+                        errorMessage = error.message;
+                        try { 
+                            const parsedError = JSON.parse(errorMessage);
+                            errorMessage = parsedError.error || errorMessage;
+                        } catch(e) { /* It wasn't JSON, use raw message */ }
+                    }
+                    showError(`Failed to read image: ${errorMessage}`);
+                } finally {
                     setLoadingState(false);
                 }
             }
@@ -275,7 +287,7 @@
                 }
 
                 try {
-                    const startResponse = await fetch('/api/start-analysis', {
+                    const response = await fetch('/api/interpret', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -285,69 +297,28 @@
                         })
                     });
 
-                    if (!startResponse.ok) { throw new Error(await startResponse.text()); }
-                    const { jobId } = await startResponse.json();
-                    pollForResult(jobId, 'analysis');
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText || "The server returned an error.");
+                    }
+
+                    const interpretation = await response.json();
+                    displayInterpretation(interpretation);
+
                 } catch (error) {
-                    let errorMessage = error.message;
-                    try { const parsedError = JSON.parse(errorMessage); errorMessage = parsedError.error || errorMessage; } catch (e) {}
-                    showError(`Failed to start analysis: ${errorMessage}`);
+                    let errorMessage = "An unknown error occurred.";
+                     if (error && error.message) {
+                        errorMessage = error.message;
+                        try { 
+                            const parsedError = JSON.parse(errorMessage);
+                            errorMessage = parsedError.error || errorMessage;
+                        } catch(e) { /* It wasn't JSON, use raw message */ }
+                    }
+                    showError(`An error occurred during analysis: ${errorMessage}`);
+                } finally {
                     setLoadingState(false);
                 }
             }
-
-            function pollForResult(jobId, jobType) {
-                let attempts = 0;
-                const maxAttempts = 20; // 60 second timeout
-                pollingInterval = setInterval(async () => {
-                    if (attempts >= maxAttempts) {
-                        clearInterval(pollingInterval);
-                        showError("Request timed out. The server is taking too long to respond. Please try again later.");
-                        setLoadingState(false);
-                        return;
-                    }
-                    try {
-                        const statusResponse = await fetch(`/api/check-status?id=${jobId}`);
-                        if (statusResponse.status === 404 && attempts < 5) { // Grace period for KV store to update
-                             console.log("Job not found, retrying...");
-                             attempts++;
-                             return;
-                        }
-                        if (!statusResponse.ok) {
-                            console.error(`Polling failed with status: ${statusResponse.status}`);
-                            return; // Continue polling
-                        }
-                        
-                        const result = await statusResponse.json();
-                        
-                        if (result.status === 'complete') {
-                            clearInterval(pollingInterval);
-                            setLoadingState(false);
-                            if(jobType === 'ocr') {
-                                if(Object.values(result.data).every(v => v === null)){
-                                    showError("OCR could not read any values from the image. Please ensure the image is clear and well-lit.");
-                                } else {
-                                    populateForm(result.data);
-                                    manualModeBtn.click();
-                                    showInfo("OCR complete. Please verify the extracted values below, then click 'Analyze'.");
-                                }
-                            } else {
-                                displayInterpretation(result.data);
-                            }
-                        } else if (result.status === 'failed') {
-                            clearInterval(pollingInterval);
-                            setLoadingState(false);
-                            showError(`The ${jobType} process failed: ${result.error}`);
-                        }
-                        // If status is 'pending', do nothing and wait for the next interval
-                    } catch (error) {
-                        console.error("Error during polling:", error);
-                    } finally {
-                        attempts++;
-                    }
-                }, 3000); // Poll every 3 seconds
-            }
-
 
             // --- Helper Functions ---
             function populateForm(values) {
@@ -405,14 +376,12 @@
             }
             
             function clearResults() {
-                clearInterval(pollingInterval);
                 resultsContainer.innerHTML = '';
                 resultsCard.classList.add('hidden');
                 placeholderCard.classList.remove('hidden');
             }
 
             function showError(message) {
-                clearInterval(pollingInterval);
                 clearResults();
                 resultsContainer.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p class="font-bold">Error</p><p>${message}</p></div>`;
                 resultsCard.classList.remove('hidden');
