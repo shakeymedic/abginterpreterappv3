@@ -2,6 +2,7 @@
 publish = "abg-interpreter-app"
 functions = "netlify/functions"
 
+# Edge Functions for API calls that need Netlify KV access
 [[edge_functions]]
 function = "start-ocr"
 path = "/api/start-ocr"
