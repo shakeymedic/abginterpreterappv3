@@ -1,10 +1,17 @@
 [build]
 publish = "abg-interpreter-app"
-
-[functions]
-directory = "netlify/functions"
+functions = "netlify/functions"
 
 [[redirects]]
-from = "/api/*"
-to = "/.netlify/functions/:splat"
+from = "/api/check-status"
+to = "/.netlify/functions/check-status"
 status = 200
+
+[[redirects]]
+from = "/api/start-analysis"
+to = "/.netlify/functions/start-analysis"
+status = 200
+
+[[edge_functions]]
+function = "start-ocr"
+path = "/api/start-ocr"
