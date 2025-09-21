@@ -77,24 +77,34 @@ For valid data:
             });
         }
         
-        // Robust JSON extraction
-        const startIndex = responseText.indexOf('{');
-        const endIndex = responseText.lastIndexOf('}');
-        
-        if (startIndex === -1 || endIndex === -1) {
-            console.error("Failed to find valid JSON in AI response:", responseText);
-            return new Response(JSON.stringify({ error: 'AI response did not contain a valid JSON object.' }), {
+        // This is the new, more robust JSON extraction block.
+        try {
+            const startIndex = responseText.indexOf('{');
+            const endIndex = responseText.lastIndexOf('}');
+            
+            if (startIndex === -1 || endIndex === -1) {
+                // If we can't even find the start and end of a JSON object, the response is invalid.
+                throw new Error("AI response did not contain a valid JSON object.");
+            }
+            
+            const extractedJson = responseText.substring(startIndex, endIndex + 1);
+            
+            // Final check to ensure the extracted string is actually valid JSON before sending.
+            JSON.parse(extractedJson); 
+            
+            return new Response(extractedJson, {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+        } catch (e) {
+            // This will catch errors from the AI returning malformed JSON.
+            console.error("Failed to parse JSON from AI response:", responseText);
+            return new Response(JSON.stringify({ error: 'The AI returned a malformed response for this data set. Please verify inputs or try again.' }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
             });
         }
-        
-        const extractedJson = responseText.substring(startIndex, endIndex + 1);
-        
-        return new Response(extractedJson, {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
 
     } catch (error) {
         console.error('Error in interpret function:', error);
