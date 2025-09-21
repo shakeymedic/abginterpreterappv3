@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Backend functions for the WMEBEM ABG Interpreter.",
   "dependencies": {
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "netlify:kv": "latest"
   }
 }
