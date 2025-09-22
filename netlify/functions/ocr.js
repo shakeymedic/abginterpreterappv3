@@ -75,3 +75,64 @@ Based on the rules and instructions above, please extract the values from the fo
             console.error('Gemini API error:', errorText);
             return {
                 statusCode: 500,
+                body: JSON.stringify({ error: 'OCR processing failed. Please try again.' })
+            };
+        }
+
+        const data = await geminiResponse.json();
+        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (!responseText) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: 'No content returned from OCR.' })
+            };
+        }
+
+        let extractedJson;
+        try {
+            // First, try to parse the entire response as JSON
+            extractedJson = JSON.parse(responseText.trim());
+        } catch (e1) {
+            try {
+                // If that fails, remove any markdown code blocks
+                let cleanedText = responseText
+                    .replace(/```json\s*/gi, '')
+                    .replace(/```\s*/g, '')
+                    .trim();
+                
+                // Then try to find the JSON object's boundaries
+                const startIndex = cleanedText.indexOf('{');
+                const endIndex = cleanedText.lastIndexOf('}');
+                
+                if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                    const jsonString = cleanedText.substring(startIndex, endIndex + 1);
+                    extractedJson = JSON.parse(jsonString);
+                } else {
+                    throw new Error('No valid JSON structure found in OCR response');
+                }
+            } catch (e2) {
+                console.error('Failed to parse JSON from OCR:', e2, 'Response:', responseText);
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({ error: 'Failed to parse OCR results.' })
+                };
+            }
+        }
+
+        return {
+            statusCode: 200,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(extractedJson)
+        };
+
+    } catch (error) {
+        console.error('OCR function error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'An unexpected error occurred during OCR processing.' })
+        };
+    }
+};
