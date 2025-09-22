@@ -24,7 +24,7 @@ exports.handler = async (event) => {
             };
         }
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
         const systemPrompt = `You are a precise Optical Character Recognition (OCR) engine for medical lab reports.
 Your entire response MUST be ONLY a single, valid JSON object, starting with { and ending with }. Do not include markdown, comments, or any other text.
@@ -41,7 +41,8 @@ RULES:
    - "sodium" from "Na+" or "Na"
    - "potassium" from "K+" or "K"
    - "chloride" from "Cl-" or "Cl"
-5. **Unit Conversion:** If pCO2 or pO2 values appear to be in mmHg (values > 20), convert to kPa by dividing by 7.5.`;
+5. **Handle Non-Numerical Values:** If a value is represented by text (e.g., "Error", "---", "N/A") or is otherwise not a number, its value in the JSON MUST be `null`.   
+6. **Unit Conversion:** If pCO2 or pO2 values appear to be in mmHg (values > 20), convert to kPa by dividing by 7.5.`;
 
         const userPrompt = `Extract the blood gas values from this image and return them as a clean JSON object of numbers.`;
 
