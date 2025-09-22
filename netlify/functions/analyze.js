@@ -79,61 +79,53 @@ FORMAT each key as follows:
 
 "differentials": String with comprehensive differential list. **Bold** the most likely diagnosis.`;
 
-        // Build the analysis prompt
-        let prompt = `Analyze this blood gas:\n`;
-        prompt += `Clinical History: ${clinicalHistory || 'Not provided'}\n`;
-        prompt += `Sample Type: ${sampleType || 'Arterial'}\n`;
-        prompt += `Values:\n`;
-        
-        // Format values for analysis - assume normal albumin if not provided
-        const analysisValues = { ...values };
-        if (!analysisValues.albumin || isNaN(analysisValues.albumin)) {
-            analysisValues.albumin = 42.5; // Mid-range normal (35-50 g/L range)
+        // First, build the part of the prompt with the patient's data
+let patientDataPrompt = `Clinical History: ${clinicalHistory || 'Not provided'}\n`;
+patientDataPrompt += `Sample Type: ${sampleType || 'Arterial'}\n`;
+patientDataPrompt += `Values:\n`;
+
+const analysisValues = { ...values };
+if (!analysisValues.albumin || isNaN(analysisValues.albumin)) {
+    analysisValues.albumin = 42.5; // Assume normal if not provided
+}
+
+const valueMapping = {
+    ph: 'pH', pco2: 'pCO₂ (kPa)', po2: 'pO₂ (kPa)', hco3: 'HCO₃⁻ (mmol/L)',
+    sodium: 'Na⁺ (mmol/L)', potassium: 'K⁺ (mmol/L)', chloride: 'Cl⁻ (mmol/L)',
+    albumin: 'Albumin (g/L)', lactate: 'Lactate (mmol/L)', glucose: 'Glucose (mmol/L)',
+    calcium: 'Ionised Ca²⁺ (mmol/L)', hb: 'Hb (g/L)', fio2: 'FiO₂ (%)'
+};
+
+for (const [key, label] of Object.entries(valueMapping)) {
+    if (analysisValues[key] !== null && analysisValues[key] !== undefined && !isNaN(analysisValues[key])) {
+        if (key === 'albumin' && !values.albumin) {
+            patientDataPrompt += `- ${label}: ${analysisValues[key]} (assumed normal)\n`;
+        } else {
+            patientDataPrompt += `- ${label}: ${analysisValues[key]}\n`;
         }
-        
-        const valueMapping = {
-            ph: 'pH',
-            pco2: 'pCO₂ (kPa)',
-            po2: 'pO₂ (kPa)',
-            hco3: 'HCO₃⁻ (mmol/L)',
-            sodium: 'Na⁺ (mmol/L)',
-            potassium: 'K⁺ (mmol/L)',
-            chloride: 'Cl⁻ (mmol/L)',
-            albumin: 'Albumin (g/L)',
-            lactate: 'Lactate (mmol/L)',
-            glucose: 'Glucose (mmol/L)',
-            calcium: 'Ionised Ca²⁺ (mmol/L)',
-            hb: 'Hb (g/L)',
-            fio2: 'FiO₂ (%)'
-        };
+    }
+}
 
-        for (const [key, label] of Object.entries(valueMapping)) {
-            if (analysisValues[key] !== null && analysisValues[key] !== undefined && !isNaN(analysisValues[key])) {
-                if (key === 'albumin' && !values.albumin) {
-                    prompt += `- ${label}: ${analysisValues[key]} (assumed normal)\n`;
-                } else {
-                    prompt += `- ${label}: ${analysisValues[key]}\n`;
-                }
-            }
-        }
+// Now, combine the system instructions and patient data into one prompt
+const combinedPrompt = `${systemPrompt}
 
-        prompt += `\nIMPORTANT: Calculate and show the expected compensation for the primary disorder. Compare actual vs expected values explicitly.`;
-        prompt += `\nREMEMBER: Return ONLY a JSON object with no markdown formatting or extra text.`;
+---
 
-        const requestPayload = {
-            contents: [{
-                parts: [{ text: prompt }]
-            }],
-            systemInstruction: {
-                parts: [{ text: systemPrompt }]
-            },
-            generationConfig: {
-                temperature: 0.1,  // Very low temperature for consistent formatting
-                topK: 1,
-                topP: 0.8,
-                maxOutputTokens: 4096
-            }
-        };
+Based on the rules and instructions above, please analyze the following blood gas:
+${patientDataPrompt}`;
+
+// Create the simplified request payload without the 'systemInstruction' field
+const requestPayload = {
+    contents: [{
+        parts: [{ text: combinedPrompt }]
+    }],
+    generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 4096
+    }
+};
 
         console.log('Sending request to Gemini API...');
         
