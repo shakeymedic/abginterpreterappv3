@@ -12,7 +12,7 @@ exports.handler = async (event) => {
         if (!apiKey) {
             return {
                 statusCode: 500,
-                body: JSON.stringify({ error: 'API key not configured. Please set GEMINI_API_KEY in Netlify environment variables.' })
+                body: JSON.stringify({ error: 'API key not configured.' })
             };
         }
 
@@ -27,105 +27,88 @@ exports.handler = async (event) => {
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        const systemPrompt = `You are an expert clinical biochemist interpreting blood gas results with emphasis on compensation analysis.
+        const systemPrompt = `You are an expert clinical biochemist and intensivist providing a detailed, registrar-level blood gas analysis for an emergency medicine doctor in the UK.
 
-CRITICAL: Your ENTIRE response must be ONLY a valid JSON object, with NO other text before or after.
-Do not include markdown formatting, backticks, or any explanatory text.
-Start directly with { and end with }
+CRITICAL: Your ENTIRE response must be ONLY a valid JSON object, starting with { and ending with }. Do not include markdown formatting or any other text.
 
-The JSON must have these exact keys: "keyFindings", "compensationAnalysis", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials"
+The JSON must have these exact keys: "keyFindings", "compensationAnalysis", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
 
-CRITICAL VALUES to flag:
-- pH < 7.2 or > 7.6
-- pCO2 < 2.0 or > 9.0 kPa
-- K+ < 2.5 or > 6.5
-- lactate > 4.0
+FORMATTING RULES:
+- All text values must be strings.
+- Use markdown's double asterisks (e.g., **Metabolic Acidosis**) for emphasis.
 
-COMPENSATION ANALYSIS REQUIREMENTS:
+ANALYSIS INSTRUCTIONS:
 
-1. METABOLIC ACIDOSIS:
-   - Expected pCO2 = 1.5 × [HCO3] + 8 (±2) - Winter's formula
-   - If actual pCO2 > expected: concurrent respiratory acidosis
-   - If actual pCO2 < expected: concurrent respiratory alkalosis
-   - Include: "Expected pCO2: X kPa, Actual: Y kPa, Compensation: [appropriate/partial/mixed disorder]"
+1.  **"keyFindings"**: Provide a concise summary paragraph synthesising the results. It MUST state the primary disorder(s), the status of compensation, any critical values, and finish by explicitly listing the **Top 3 Differential Diagnoses**.
 
-2. METABOLIC ALKALOSIS:
-   - Expected pCO2 increase = 0.7 × (HCO3 - 24)
-   - Maximum compensation pCO2 ≈ 7.3 kPa (55 mmHg)
+2.  **"compensationAnalysis"**: Perform and show calculations for expected compensation. Crucially, provide a narrative explaining the evidence for your conclusion (e.g., "The observed pCO2 is significantly higher than the expected compensation of 4.5 kPa, confirming a co-existing respiratory acidosis.").
+    * Metabolic Acidosis: Use Winter's formula (Expected pCO2 kPa = (1.5 * HCO3 + 8) / 7.5).
+    * Respiratory Disorders: Assess if compensation is acute or chronic based on HCO3 changes.
 
-3. RESPIRATORY ACIDOSIS:
-   - Acute: HCO3 increases 1 mmol/L per 1.33 kPa pCO2 rise
-   - Chronic: HCO3 increases 4 mmol/L per 1.33 kPa pCO2 rise
+3.  **"hhAnalysis"**: Provide a Henderson-Hasselbalch based analysis.
+    * Calculate the Anion Gap (AG) = (Na+ + K+) - (Cl- + HCO3-). State if it is normal or high.
+    * If albumin is provided, calculate the Corrected AG = AG + 0.25 * (40 - albumin).
+    * If a HAGMA is present, calculate and interpret the Delta Ratio. If it's uninterpretable (e.g., due to normal HCO3), state this and explain why.
 
-4. RESPIRATORY ALKALOSIS:
-   - Acute: HCO3 falls 2 mmol/L per 1.33 kPa pCO2 fall
-   - Chronic: HCO3 falls 4 mmol/L per 1.33 kPa pCO2 fall
+4.  **"stewartAnalysis"**: Perform a detailed quantitative analysis using the Stewart approach.
+    * Calculate SIDa (Apparent Strong Ion Difference) = [Na+] + [K+] - [Cl-].
+    * Calculate SIDe (Effective Strong Ion Difference). Use the formula: (1000 * 2.46 * 10^-11 * pCO2 / (10^-pH)) + (albumin * (0.123 * pH - 0.631)) + (1 * (0.309 * pH - 0.469)). Assume phosphate is 1 mmol/L if not given.
+    * Calculate the Strong Ion Gap (SIG) = SIDa - SIDe.
+    * **Provide a full interpretation paragraph**: Explain what the SIG represents clinically. A significantly positive SIG (>2) indicates the presence of unmeasured anions (e.g., ketones, lactate, salicylates, toxins) and is the primary driver of the acidosis. A SIG near zero in the presence of a HAGMA suggests hypoalbuminaemia is a major contributor.
 
-5. MIXED DISORDERS:
-   - Calculate Delta Ratio = (AG - 12) / (24 - HCO3)
-   - Interpret: <0.4 hyperchloremic, 0.4-0.8 mixed, 0.8-2.0 pure high AG, >2.0 metabolic alkalosis + high AG
+5.  **"additionalCalculations"**:
+    * If FiO2 is provided, calculate and interpret the P/F ratio (PaO2 in kPa / FiO2 as a decimal).
+    * If albumin is provided, calculate the corrected calcium.
 
-FORMAT each key as follows:
-
-"keyFindings": String with primary disorder, compensation status, critical values, and top 3 differentials. Use **bold** for critical values.
-
-"compensationAnalysis": String with detailed compensation calculations showing expected vs actual values with interpretation.
-
-"hhAnalysis": String with Henderson-Hasselbalch analysis including Anion Gap (use albumin 42.5 g/L if not provided), corrected AG, and base excess. **Bold** abnormal values.
-
-"stewartAnalysis": String with Stewart analysis if electrolytes available. Calculate SIDa, SIDe, SIG. Note if albumin assumed.
-
-"additionalCalculations": String with P/F ratio if FiO2 provided, A-a gradient if room air, corrected calcium if applicable.
-
-"differentials": String with comprehensive differential list. **Bold** the most likely diagnosis.`;
+6.  **"differentials"**: Provide a comprehensive, structured list of potential causes for each acid-base abnormality identified. For each major differential, suggest the **"Next critical step:"** (e.g., "Check serum ketones"). The most likely overall diagnosis should be in **bold**.`;
 
         // First, build the part of the prompt with the patient's data
-let patientDataPrompt = `Clinical History: ${clinicalHistory || 'Not provided'}\n`;
-patientDataPrompt += `Sample Type: ${sampleType || 'Arterial'}\n`;
-patientDataPrompt += `Values:\n`;
+        let patientDataPrompt = `Clinical History: ${clinicalHistory || 'Not provided'}\n`;
+        patientDataPrompt += `Sample Type: ${sampleType || 'Arterial'}\n`;
+        patientDataPrompt += `Values:\n`;
 
-const analysisValues = { ...values };
-if (!analysisValues.albumin || isNaN(analysisValues.albumin)) {
-    analysisValues.albumin = 42.5; // Assume normal if not provided
-}
-
-const valueMapping = {
-    ph: 'pH', pco2: 'pCO₂ (kPa)', po2: 'pO₂ (kPa)', hco3: 'HCO₃⁻ (mmol/L)',
-    sodium: 'Na⁺ (mmol/L)', potassium: 'K⁺ (mmol/L)', chloride: 'Cl⁻ (mmol/L)',
-    albumin: 'Albumin (g/L)', lactate: 'Lactate (mmol/L)', glucose: 'Glucose (mmol/L)',
-    calcium: 'Ionised Ca²⁺ (mmol/L)', hb: 'Hb (g/L)', fio2: 'FiO₂ (%)'
-};
-
-for (const [key, label] of Object.entries(valueMapping)) {
-    if (analysisValues[key] !== null && analysisValues[key] !== undefined && !isNaN(analysisValues[key])) {
-        if (key === 'albumin' && !values.albumin) {
-            patientDataPrompt += `- ${label}: ${analysisValues[key]} (assumed normal)\n`;
-        } else {
-            patientDataPrompt += `- ${label}: ${analysisValues[key]}\n`;
+        const analysisValues = { ...values };
+        if (!analysisValues.albumin || isNaN(analysisValues.albumin)) {
+            analysisValues.albumin = 42.5; // Assume normal if not provided
         }
-    }
-}
 
-// Now, combine the system instructions and patient data into one prompt
-const combinedPrompt = `${systemPrompt}
+        const valueMapping = {
+            ph: 'pH', pco2: 'pCO₂ (kPa)', po2: 'pO₂ (kPa)', hco3: 'HCO₃⁻ (mmol/L)',
+            sodium: 'Na⁺ (mmol/L)', potassium: 'K⁺ (mmol/L)', chloride: 'Cl⁻ (mmol/L)',
+            albumin: 'Albumin (g/L)', lactate: 'Lactate (mmol/L)', glucose: 'Glucose (mmol/L)',
+            calcium: 'Ionised Ca²⁺ (mmol/L)', hb: 'Hb (g/L)', fio2: 'FiO₂ (%)'
+        };
+
+        for (const [key, label] of Object.entries(valueMapping)) {
+            if (analysisValues[key] !== null && analysisValues[key] !== undefined && !isNaN(analysisValues[key])) {
+                if (key === 'albumin' && !values.albumin) {
+                    patientDataPrompt += `- ${label}: ${analysisValues[key]} (assumed normal)\n`;
+                } else {
+                    patientDataPrompt += `- ${label}: ${analysisValues[key]}\n`;
+                }
+            }
+        }
+
+        // Now, combine the system instructions and patient data into one prompt
+        const combinedPrompt = `${systemPrompt}
 
 ---
 
 Based on the rules and instructions above, please analyze the following blood gas:
 ${patientDataPrompt}`;
 
-// Create the simplified request payload without the 'systemInstruction' field
-const requestPayload = {
-    contents: [{
-        parts: [{ text: combinedPrompt }]
-    }],
-    generationConfig: {
-        temperature: 0.1,
-        topK: 1,
-        topP: 0.8,
-        maxOutputTokens: 4096
-    }
-};
+        // Create the simplified request payload without the 'systemInstruction' field
+        const requestPayload = {
+            contents: [{
+                parts: [{ text: combinedPrompt }]
+            }],
+            generationConfig: {
+                temperature: 0.2, // Slightly increased for more descriptive text
+                topK: 1,
+                topP: 0.8,
+                maxOutputTokens: 8192 // Increased to allow for more detailed responses
+            }
+        };
 
         console.log('Sending request to Gemini API...');
         
@@ -229,3 +212,4 @@ const requestPayload = {
         };
     }
 };
+
