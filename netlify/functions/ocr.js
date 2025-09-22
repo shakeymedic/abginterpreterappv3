@@ -26,21 +26,21 @@ exports.handler = async (event) => {
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        const systemPrompt = `You are a hyper-accurate Optical Character Recognition (OCR) engine specifically for blood gas analyser printouts. Your only job is to extract numbers.
+        const systemPrompt = `You are a hyper-accurate Optical Character Recognition (OCR) engine for medical lab reports. Your ONLY task is to find specific labels and extract the number next to them.
 
-CRITICAL: Your entire response MUST be a single, valid JSON object. Do not include markdown, comments, or any other text.
+CRITICAL: Your entire response MUST be a single, valid JSON object. Do not include any text outside of the JSON structure.
 
 RULES:
-1.  **Extract Numbers Only:** Find the corresponding label and extract ONLY the numerical value next to it. Ignore all other symbols, letters, or units (e.g., if you see ">9.0", the value is 9.0).
-2.  **Complete All Keys:** The JSON response MUST contain all of the following keys.
-3.  **Use null for Missing Values:** If a value for a key cannot be found on the printout, its value MUST be \`null\`.
-4.  **Do NOT Convert Units:** Extract the numbers exactly as you see them. The user will handle unit conversions.
+1.  **NO CALCULATIONS. NO CONVERSIONS.** You must extract the numbers exactly as they appear on the page. Do not change, convert, or perform any mathematical operations on them. This is the most important rule.
+2.  **Extract Numbers Only:** Find the corresponding label and extract ONLY the numerical value. Ignore all symbols or letters attached to the number.
+3.  **Complete All Keys:** The JSON response MUST contain all of the following keys.
+4.  **Use null for Missing Values:** If a value for a key cannot be found, its value in the JSON MUST be \`null\`.
 5.  **Value Mapping:** Use these common labels to find the correct values:
-    * "hb" from "tHb" or "Hb"
-    * "hco3" from "cHCO3st", "HCO3(st)", or "HCO3"
+    * "hb" from "tHb"
+    * "hco3" from "cHCO3st" or "HCO3" (prioritise "cHCO3st")
     * "glucose" from "Glu"
     * "lactate" from "Lac"
-    * "calcium" from "Ca2+" or "iCa"
+    * "calcium" from "Ca2+"
 
 ---
 
@@ -49,12 +49,11 @@ If you see text like this:
 "pH 7.31
  pCO2 8.9 kPa
  pO2 7.1 kPa
- Na+ 141 mmol/L
- K+ 5.4 mmol/L
- cHCO3(st) 31.2 mmol/L
- Lac 1.9 mmol/L"
+ Na+ 141
+ K+ 5.4
+ cHCO3st 31.2"
 
-Your response MUST be this exact JSON object:
+Your response MUST be this exact JSON object, with no changes to the numbers:
 {
   "ph": 7.31,
   "pco2": 8.9,
@@ -64,7 +63,7 @@ Your response MUST be this exact JSON object:
   "potassium": 5.4,
   "chloride": null,
   "albumin": null,
-  "lactate": 1.9,
+  "lactate": null,
   "glucose": null,
   "calcium": null,
   "hb": null
@@ -75,7 +74,7 @@ Your response MUST be this exact JSON object:
 
 ---
 
-Based on the rules and instructions above, please extract the values from the following image.`;
+Based on the rules and the example above, extract the values from the following image. Remember: DO NOT convert any units.`;
 
         // Create the simplified request payload
         const requestPayload = {
@@ -91,7 +90,7 @@ Based on the rules and instructions above, please extract the values from the fo
                 ]
             }],
             generationConfig: {
-                temperature: 0.1,
+                temperature: 0.0, // Set to zero for maximum precision and adherence to instructions
                 topK: 1,
                 topP: 0.95,
                 maxOutputTokens: 2048
@@ -170,3 +169,4 @@ Based on the rules and instructions above, please extract the values from the fo
         };
     }
 };
+
