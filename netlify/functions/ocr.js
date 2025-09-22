@@ -34,10 +34,10 @@ You are an expert at reading medical blood gas printouts.
 
 Rules:
 1. Extract ONLY the measured values, not the reference ranges.
-2. All gas values (pCO₂, pO₂) must always be in kPa. 
-   - Do NOT convert anything. 
-   - If the printout shows mmHg, ignore that and assume the number is in kPa.
-3. Return a JSON object with these keys:
+2. All gas values (pCO₂, pO₂) must always be in kPa. Do NOT convert anything.
+3. If a number has flags or symbols (e.g. "+", "#", "*", "↑", "↓"), ignore them and return only the numeric part.
+4. Ignore any units or text. Only output the number itself.
+5. Return a JSON object with these keys:
    - ph
    - pco2
    - po2
@@ -51,9 +51,9 @@ Rules:
    - calcium
    - hb
    - be
-4. If a value is missing, set it to null.
-5. Use plain numbers (no units, no symbols).
-6. Output only valid JSON, nothing else.
+6. If a value is missing, set it to null.
+7. Use plain numbers (no units, no symbols).
+8. Output only valid JSON, nothing else.
 `;
 
     const requestPayload = {
@@ -140,6 +140,22 @@ Rules:
       if (!(k in extractedJson)) extractedJson[k] = null;
     }
 
+    // ✅ Clean numeric fields
+    function cleanNumber(val) {
+      if (val === null || val === undefined) return null;
+      if (typeof val === "number") return val;
+      if (typeof val === "string") {
+        const cleaned = val.replace(/[^0-9.+-]/g, ""); // strip non-numeric chars
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? null : num;
+      }
+      return null;
+    }
+
+    for (const k of requiredKeys) {
+      extractedJson[k] = cleanNumber(extractedJson[k]);
+    }
+
     return {
       statusCode: 200,
       headers: {
@@ -152,7 +168,10 @@ Rules:
     console.error("OCR function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Internal server error", details: err.message })
+      body: JSON.stringify({
+        error: "Internal server error",
+        details: err.message
+      })
     };
   }
 }
