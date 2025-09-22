@@ -1,146 +1,173 @@
-exports.handler = async (event) => {
-    // Only accept POST requests
-    if (event.httpMethod !== 'POST') {
-        return {
-            statusCode: 405,
-            body: JSON.stringify({ error: 'Method Not Allowed' })
-        };
+// netlify/functions/analyze.js
+
+export async function handler(event) {
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method not allowed" })
+    };
+  }
+
+  try {
+    const { values, clinicalHistory, sampleType } = JSON.parse(event.body);
+
+    if (!values?.ph || !values?.pco2) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing required values (pH and pCO₂ required)." })
+      };
     }
 
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "API key not configured. Please set GEMINI_API_KEY in Netlify." })
+      };
+    }
+
+    // Default values if missing
+    const albumin = values.albumin ?? 42.5; // g/L
+    const be = values.be ?? 0; // mmol/L
+
+    // Build structured prompt
+    const combinedPrompt = `
+You are a consultant in emergency medicine and critical care. Interpret the following blood gas with detailed calculations.
+
+Patient Data (all units standard):
+- pH: ${values.ph}
+- pCO₂: ${values.pco2} kPa
+- pO₂: ${values.po2 ?? "not provided"}
+- HCO₃⁻: ${values.hco3 ?? "not provided"}
+- Base Excess (BE): ${be}
+- Na⁺: ${values.sodium ?? "not provided"}
+- K⁺: ${values.potassium ?? "not provided"}
+- Cl⁻: ${values.chloride ?? "not provided"}
+- Lactate: ${values.lactate ?? "not provided"}
+- Albumin: ${albumin} g/L (assumed normal if not provided)
+- Glucose: ${values.glucose ?? "not provided"}
+- Calcium: ${values.calcium ?? "not provided"}
+- Hb: ${values.hb ?? "not provided"}
+- Sample type: ${sampleType ?? "not specified"}
+- Clinical context: ${clinicalHistory ?? "not provided"}
+
+### Instructions
+Provide a full, detailed interpretation, with actual calculations shown step by step.  
+If a value is missing, assume normal (and state that assumption).  
+Always include Anion Gap, Albumin-corrected AG, Delta ratio, and Base Excess.  
+Perform both Henderson–Hasselbalch and Stewart analyses.  
+Stewart: calculate SIDa, SIDe, SIG using albumin (assume 42.5 g/L if not given).  
+Differentials: provide bullet points with potential causes and next investigations.  
+All sections must be detailed and written in Markdown.
+
+### Response Format
+Return ONLY a JSON object with these keys.  
+Each value must be a multi-line Markdown string with explanations, not a single sentence.
+
+{
+  "keyFindings": "...",
+  "compensationAnalysis": "...",
+  "hhAnalysis": "...",
+  "stewartAnalysis": "...",
+  "additionalCalculations": "...",
+  "differentials": "..."
+}
+    `;
+
+    const requestPayload = {
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: combinedPrompt }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 4096
+      }
+    };
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestPayload)
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return {
+        statusCode: response.status,
+        body: JSON.stringify({ error: `Gemini API error: ${errText}` })
+      };
+    }
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+    if (!rawText) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "No text output from model." })
+      };
+    }
+
+    // Try to parse JSON safely
+    let parsed;
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: 'API key not configured.' })
-            };
-        }
-
-        const { values, clinicalHistory, sampleType } = JSON.parse(event.body);
-
-        if (!values || !values.ph || !values.pco2) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'pH and pCO2 values are required for analysis.' })
-            };
-        }
-
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
-
-        // UPGRADED PROMPT FOR CONSULTANT-LEVEL JOINT EM/ICU ANALYSIS
-        const systemPrompt = `You are a consultant-level clinical decision support tool. Your entire analysis must reflect a joint consensus between a senior UK-based Intensive Care consultant and a senior UK-based Emergency Medicine consultant, providing a synthesis of both perspectives. Your response must be a single, valid JSON object. For each key, provide a detailed, well-structured markdown string.
-
-The JSON must have these exact keys: "keyFindings", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials"
-
-INSTRUCTIONS FOR EACH KEY'S CONTENT:
-
-"keyFindings": A concise summary paragraph from a joint EM/ICU perspective. State the primary physiological insults, compensation status, and critical life-threats. You MUST include the top three most likely differential diagnoses.
-
-"hhAnalysis": This section must be highly detailed.
-1.  **Main Heading:** "Henderson-Hasselbalch Analysis".
-2.  **List Values:** List pH, pCO₂, and HCO₃⁻ with normal ranges and a brief interpretation.
-3.  **Primary Disorder & Compensation Heading:** Create a bolded sub-heading. State the final diagnosis.
-4.  **Evidence Sections:** For mixed disorders, you MUST include bolded "Evidence for..." sub-headings. Under each, explain the reasoning and show the expected compensation calculation (e.g., Winter's formula) to prove the co-existence of the other disorder.
-5.  **Calculated Values Heading:** Create a bolded sub-heading. Show full calculations for Anion Gap, and state when Albumin-corrected AG or Delta Ratio cannot be reliably calculated, explaining why.
-
-"stewartAnalysis": This must also be highly detailed.
-1.  **Main Heading:** "Stewart (Physicochemical) Analysis".
-2.  **Calculations:** Show full calculations for SIDa, SIDe, and SIG. State when they cannot be calculated due to missing data.
-3.  **Clinical Interpretation:** If SIG is high, you must provide a paragraph explaining its clinical significance as the primary driver of the metabolic acidosis due to unmeasured anions (ketones, lactate, toxins etc.).
-
-"additionalCalculations":
-1.  **Main Heading:** "Additional Calculations".
-2.  Calculate the P/F Ratio if FiO₂ is provided. Explain why it cannot be calculated for venous samples.
-
-"differentials": This section must be structured like a joint EM/ICU management plan.
-1.  **Main Heading:** "Potential Differential Diagnoses & Management Plan".
-2.  For each significant abnormality (e.g., "High Anion Gap Metabolic Acidosis (HAGMA)"), create a bolded sub-heading.
-3.  Under each sub-heading, list the potential causes with a brief rationale.
-4.  Crucially, for each cause, you MUST include two distinct, actionable lines:
-    * \`Immediate ED Actions:\` outlining critical next steps for resuscitation and investigation in the ED.
-    * \`Anticipated ICU Plan:\` outlining potential next-level supportive care, monitoring, and treatment over the next 24-48 hours.`;
-        
-        const patientDataPrompt = `Clinical History: ${clinicalHistory || 'Not provided'}\nSample Type: ${sampleType || 'Arterial'}\nValues:\n`;
-        let valuesForPrompt = '';
-        
-        const analysisValues = { ...values };
-        if (analysisValues.albumin === null || isNaN(analysisValues.albumin)) {
-            analysisValues.albumin = 40; // Assume normal if not provided
-        }
-
-        const valueMapping = {
-            ph: 'pH', pco2: 'pCO₂ (kPa)', po2: 'pO₂ (kPa)', hco3: 'HCO₃⁻ (mmol/L)',
-            sodium: 'Na⁺ (mmol/L)', potassium: 'K⁺ (mmol/L)', chloride: 'Cl⁻ (mmol/L)',
-            albumin: 'Albumin (g/L)', lactate: 'Lactate (mmol/L)', glucose: 'Glucose (mmol/L)',
-            calcium: 'Ionised Ca²⁺ (mmol/L)', hb: 'Hb (g/L)', fio2: 'FiO₂ (%)'
+      parsed = JSON.parse(rawText);
+    } catch (err) {
+      // Remove code fences if present
+      const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "");
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (e) {
+        // Last resort fallback
+        parsed = {
+          keyFindings: "Unable to parse model output.\n\n" + rawText,
+          compensationAnalysis: "",
+          hhAnalysis: "",
+          stewartAnalysis: "",
+          additionalCalculations: "",
+          differentials: ""
         };
-
-        for (const [key, label] of Object.entries(valueMapping)) {
-            if (values[key] !== null && values[key] !== undefined && !isNaN(values[key])) {
-                if (key === 'albumin' && !values.albumin) {
-                    valuesForPrompt += `- ${label}: ${analysisValues[key]} (assumed normal)\n`;
-                } else {
-                    valuesForPrompt += `- ${label}: ${values[key]}\n`;
-                }
-            }
-        }
-
-        const combinedPrompt = `${systemPrompt}\n\n---\n\nBased on the rules above, please analyze the following blood gas:\n${patientDataPrompt}${valuesForPrompt}`;
-
-        const requestPayload = {
-            contents: [{ parts: [{ text: combinedPrompt }] }],
-            generationConfig: {
-                temperature: 0.1,
-                topK: 1,
-                topP: 0.8,
-                maxOutputTokens: 8192,
-                responseMimeType: "application/json",
-            }
-        };
-
-        const geminiResponse = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestPayload)
-        });
-
-        if (!geminiResponse.ok) {
-            const errorText = await geminiResponse.text();
-            console.error('Gemini API error:', errorText);
-            return { statusCode: 500, body: JSON.stringify({ error: 'Analysis failed. Please try again.' }) };
-        }
-
-        const data = await geminiResponse.json();
-        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        
-        if (!responseText) {
-            return { statusCode: 500, body: JSON.stringify({ error: 'No analysis content returned from AI.' }) };
-        }
-
-        let extractedJson;
-        try {
-            extractedJson = JSON.parse(responseText.trim());
-        } catch (e) {
-            console.error('Failed to parse JSON:', e, 'Response was:', responseText);
-            return { statusCode: 500, body: JSON.stringify({ error: 'Failed to parse analysis results.' }) };
-        }
-        
-        const requiredKeys = ['keyFindings', 'hhAnalysis', 'stewartAnalysis', 'additionalCalculations', 'differentials'];
-        for (const key of requiredKeys) {
-            if (!extractedJson[key]) {
-                extractedJson[key] = 'Not performed for this analysis.';
-            }
-        }
-
-        return {
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-            body: JSON.stringify(extractedJson)
-        };
-
-    } catch (error) {
-        console.error('Analysis function error:', error);
-        return { statusCode: 500, body: JSON.stringify({ error: 'An unexpected error occurred during analysis: ' + error.message }) };
+      }
     }
-};
 
+    // Ensure all keys exist
+    const required = [
+      "keyFindings",
+      "compensationAnalysis",
+      "hhAnalysis",
+      "stewartAnalysis",
+      "additionalCalculations",
+      "differentials"
+    ];
+    for (const k of required) {
+      if (!parsed[k]) parsed[k] = "No data provided.";
+    }
+
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache"
+      },
+      body: JSON.stringify(parsed)
+    };
+
+  } catch (err) {
+    console.error("Analyze function error:", err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Internal server error", details: err.message })
+    };
+  }
+}
