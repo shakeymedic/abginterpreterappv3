@@ -1,4 +1,5 @@
 // netlify/functions/analyze.js
+// Detailed ABG analysis using Gemini 2.5 Flash
 
 export async function handler(event) {
   if (event.httpMethod !== "POST") {
@@ -16,15 +17,11 @@ export async function handler(event) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "API key not configured." })
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: "API key not configured." }) };
     }
 
-    // 🔎 unwrap OCR values { value, error, warning } or raw numbers
-    const pick = (v) =>
-      v && typeof v === "object" && "value" in v ? v.value : v;
+    // unwrap OCR { value, error, warning } or plain numbers
+    const pick = (v) => (v && typeof v === "object" && "value" in v ? v.value : v);
 
     const ph = pick(values.ph);
     const pco2 = pick(values.pco2); // always kPa
@@ -36,7 +33,7 @@ export async function handler(event) {
     const albumin = pick(values.albumin) ?? 42.5;
     const be = pick(values.be) ?? 0;
 
-    // ✅ Precomputations
+    // precomputations
     const ag = na != null && k != null && cl != null && hco3 != null
       ? (na + k - (cl + hco3)).toFixed(2)
       : null;
@@ -53,20 +50,24 @@ export async function handler(event) {
       ? (1.5 * hco3 + 8).toFixed(2)
       : null;
 
-    // 🔎 Structured prompt
+    // structured prompt
     const combinedPrompt = `
-const systemPrompt = `You are an expert clinical biochemist and intensive care consultant advising an emergency medicine doctor in the UK. Your task is to interpret blood gas results.
+You are an expert clinical biochemist and intensive care consultant advising an emergency medicine doctor in the UK. Your task is to interpret blood gas results.
+
 You MUST return your response as a single, valid JSON object. Do not include any text or markdown formatting before or after the JSON object.
-The JSON object must have the following keys: "keyFindings", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
+
+The JSON object must have the following keys:
+"keyFindings", "compensationAnalysis", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
+
 The value for each key must be a string containing well-structured Markdown.
 
-Here are the instructions for the content of each key:
-- "keyFindings": A concise, one-paragraph summary of the overall picture. Then, provide a bulleted list of the 2-3 most likely differential diagnoses based on the results and clinical history.
-- "hhAnalysis": Perform a Henderson-Hasselbalch Analysis. Identify the primary disorder, assess compensation (using Winter's formula for metabolic acidosis), calculate and interpret the Anion Gap (AG) = (Na⁺ + K⁺) - (Cl⁻ + HCO₃⁻), the albumin-corrected AG = AG + 0.25 * (40 - Albumin), and the Delta Ratio = (AG - 12) / (24 - HCO₃⁻). For each calculated value, provide a standard UK reference range in brackets. If a value is outside its reference range, **you must wrap the value and its units in a <strong> tag**. For example: pH: <strong>7.15</strong> (7.35-7.45).
-- "stewartAnalysis": Perform a Stewart (Physicochemical) Analysis. Calculate SIDa = (Na⁺ + K⁺) - Cl⁻, estimate SIDe ≈ HCO₃⁻ + [Albumin⁻] where [Albumin⁻] = Albumin (g/L) * (0.123 * pH - 0.631), and calculate SIG = SIDa - SIDe. Apply the same formatting for abnormal values as above.
-- "additionalCalculations": If FiO₂ is provided and the sample is arterial, calculate the PaO₂/FiO₂ (P/F) Ratio. Formula: P/F Ratio = (PaO₂ in mmHg) / (FiO₂ / 100). Note: 1 kPa = 7.5 mmHg. Assess for ARDS severity based on the Berlin criteria (Mild: 200-300 mmHg, Moderate: 100-200 mmHg, Severe: <100 mmHg). If no FiO₂ is provided, state that the calculation cannot be performed. Apply formatting for abnormal values.
-- "differentials": Provide a comprehensive bulleted list of potential differential diagnoses. If the data strongly points to a specific diagnosis (e.g., high glucose and ketones for DKA), **bold that diagnosis** and suggest a single, critical next step in *italics*.`;
-
+Instructions for each section:
+- "keyFindings": A concise, one-paragraph summary of the overall picture. Then, provide a bulleted list of the 2–3 most likely differential diagnoses.
+- "compensationAnalysis": Assess compensation (e.g. Winter's formula for metabolic acidosis, expected HCO₃⁻ for respiratory disorders). Compare expected vs observed values.
+- "hhAnalysis": Perform a Henderson–Hasselbalch Analysis. Include pH, pCO₂, HCO₃⁻, Anion Gap (AG), albumin-corrected AG, Delta Ratio. For each, show reference ranges in brackets. If a value is abnormal, wrap it in <strong> tags.
+- "stewartAnalysis": Perform Stewart (Physicochemical) Analysis. Calculate SIDa = (Na⁺+K⁺)–Cl⁻, SIDe ≈ HCO₃⁻+[Albumin⁻], SIG = SIDa–SIDe. Apply the same formatting for abnormal values.
+- "additionalCalculations": Include P/F ratio if FiO₂ available and sample is arterial (convert kPa → mmHg using 1 kPa = 7.5 mmHg). Comment on Base Excess. Add any other relevant derived values.
+- "differentials": Provide a bulleted list of potential differential diagnoses. Bold the most likely diagnosis and suggest a single *critical next step*.
 
 ⚠️ Important: pCO₂ and pO₂ values are always provided in kPa. Do NOT convert them.
 
@@ -83,32 +84,12 @@ Patient Data:
 - Clinical context: ${clinicalHistory ?? "not provided"}
 - Sample type: ${sampleType ?? "not specified"}
 
-Pre-computed values (server-side for accuracy):
+Pre-computed values (server-side):
 - Anion Gap (AG): ${ag ?? "not available"}
 - SIDa: ${sida ?? "not available"}
 - SIDe: ${side ?? "not available"}
 - SIG: ${sig ?? "not available"}
 - Winter's expected pCO₂: ${winters ?? "not available"}
-
-### Instructions
-1. Provide **Key Findings**.  
-2. Do **Compensation Analysis** using Winter’s formula, expected HCO₃⁻, acute/chronic respiratory rules.  
-3. Provide a full **Henderson–Hasselbalch Analysis** with pH, pCO₂, HCO₃⁻ interpretation, and observed vs expected values.  
-4. Provide a full **Stewart Analysis** (SIDa, SIDe, SIG), explain significance.  
-5. Provide **Additional Calculations**: AG, albumin-corrected AG, delta ratio, Base Excess interpretation.  
-6. Provide **Differentials**: bullet points, likely causes, and next steps.  
-7. All sections must be detailed Markdown (use headings ### and bullet points).  
-
-### Response Format
-Return ONLY a JSON object with these keys:
-{
-  "keyFindings": "...",
-  "compensationAnalysis": "...",
-  "hhAnalysis": "...",
-  "stewartAnalysis": "...",
-  "additionalCalculations": "...",
-  "differentials": "..."
-}
 `;
 
     const requestPayload = {
