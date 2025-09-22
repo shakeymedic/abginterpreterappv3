@@ -25,100 +25,62 @@ exports.handler = async (event) => {
             };
         }
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
 
         const systemPrompt = `You are an expert clinical biochemist interpreting blood gas results with emphasis on compensation analysis.
-Your entire response MUST be ONLY a single, valid JSON object. Do not include markdown, comments, or any other text.
-The JSON must have these exact keys: "keyFindings", "compensationAnalysis", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
 
-**RULES FOR JSON VALUES:**
-**1. FINAL VALUES ONLY: All numerical values in the JSON MUST be the final, calculated number. DO NOT include mathematical expressions (e.g., "126 + 2.93 - 86.6"). Provide only the result (e.g., 42.33).**
-**2. ALL STRINGS MUST BE QUOTED: Every string value must be enclosed in double quotes.**
+CRITICAL: Your ENTIRE response must be ONLY a valid JSON object, with NO other text before or after.
+Do not include markdown formatting, backticks, or any explanatory text.
+Start directly with { and end with }
 
-CRITICAL VALUES:
-Flag if pH < 7.2 or > 7.6, pCO2 < 2.0 or > 9.0 kPa, K+ < 2.5 or > 6.5, lactate > 4.0
+The JSON must have these exact keys: "keyFindings", "compensationAnalysis", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials"
+
+CRITICAL VALUES to flag:
+- pH < 7.2 or > 7.6
+- pCO2 < 2.0 or > 9.0 kPa
+- K+ < 2.5 or > 6.5
+- lactate > 4.0
 
 COMPENSATION ANALYSIS REQUIREMENTS:
-You MUST calculate and report expected compensation for all acid-base disorders...
-// ... (the rest of your prompt remains the same) ...
-
-"differentials":
-- Comprehensive list based on pattern
-- **Bold** most likely diagnosis
-- Include emergency conditions
-
-**Your final output must start with { and end with } and contain nothing else.**`;
 
 1. METABOLIC ACIDOSIS:
    - Expected pCO2 = 1.5 × [HCO3] + 8 (±2) - Winter's formula
    - If actual pCO2 > expected: concurrent respiratory acidosis
    - If actual pCO2 < expected: concurrent respiratory alkalosis
-   - Report: "Expected pCO2: X kPa, Actual: Y kPa, Compensation: [appropriate/mixed disorder]"
+   - Include: "Expected pCO2: X kPa, Actual: Y kPa, Compensation: [appropriate/partial/mixed disorder]"
 
 2. METABOLIC ALKALOSIS:
    - Expected pCO2 increase = 0.7 × (HCO3 - 24)
    - Maximum compensation pCO2 ≈ 7.3 kPa (55 mmHg)
-   - Report expected vs actual and adequacy
 
 3. RESPIRATORY ACIDOSIS:
-   - Acute: HCO3 increases 1 mmol/L per 10 mmHg (1.33 kPa) pCO2 rise
-   - Chronic: HCO3 increases 4 mmol/L per 10 mmHg (1.33 kPa) pCO2 rise
-   - Calculate both and determine if acute, chronic, or acute-on-chronic
+   - Acute: HCO3 increases 1 mmol/L per 1.33 kPa pCO2 rise
+   - Chronic: HCO3 increases 4 mmol/L per 1.33 kPa pCO2 rise
 
 4. RESPIRATORY ALKALOSIS:
-   - Acute: HCO3 falls 2 mmol/L per 10 mmHg (1.33 kPa) pCO2 fall
-   - Chronic: HCO3 falls 4 mmol/L per 10 mmHg (1.33 kPa) pCO2 fall
-   - Determine acute vs chronic based on compensation
+   - Acute: HCO3 falls 2 mmol/L per 1.33 kPa pCO2 fall
+   - Chronic: HCO3 falls 4 mmol/L per 1.33 kPa pCO2 fall
 
 5. MIXED DISORDERS:
-   - Delta Ratio = (AG - 12) / (24 - HCO3)
-   - If < 0.4: hyperchloremic acidosis
-   - If 0.4-0.8: mixed high + normal AG acidosis
-   - If 0.8-2.0: pure high AG acidosis
-   - If > 2.0: metabolic alkalosis + high AG acidosis
+   - Calculate Delta Ratio = (AG - 12) / (24 - HCO3)
+   - Interpret: <0.4 hyperchloremic, 0.4-0.8 mixed, 0.8-2.0 pure high AG, >2.0 metabolic alkalosis + high AG
 
-FORMAT YOUR RESPONSE:
+FORMAT each key as follows:
 
-"keyFindings": 
-- Primary disorder with severity
-- Compensation status (full/partial/none/mixed)
-- Critical values requiring urgent attention
-- Top 3 differential diagnoses
+"keyFindings": String with primary disorder, compensation status, critical values, and top 3 differentials. Use **bold** for critical values.
 
-"compensationAnalysis":
-- Primary disorder identified
-- Expected compensation calculation shown step-by-step
-- Actual vs expected values
-- Interpretation (appropriate compensation / mixed disorder)
-- If respiratory: acute vs chronic assessment
-- Delta ratio if metabolic acidosis with AG
+"compensationAnalysis": String with detailed compensation calculations showing expected vs actual values with interpretation.
 
-"hhAnalysis":
-- Full Henderson-Hasselbalch analysis
-- Anion Gap with correction for albumin (use 42.5 g/L if not provided)
-- Corrected AG = AG + 2.5 × (40 - albumin)/10
-- Base excess calculation
-- **Bold** abnormal values with UK ranges
+"hhAnalysis": String with Henderson-Hasselbalch analysis including Anion Gap (use albumin 42.5 g/L if not provided), corrected AG, and base excess. **Bold** abnormal values.
 
-"stewartAnalysis":
-- Calculate even if albumin not explicitly provided (use assumed 42.5 g/L)
-- If Na, K, Cl available: perform full Stewart analysis
-- SIDa, SIDe, SIG calculations
-- Note if albumin was assumed vs provided
-- Independent effects assessment
+"stewartAnalysis": String with Stewart analysis if electrolytes available. Calculate SIDa, SIDe, SIG. Note if albumin assumed.
 
-"additionalCalculations":
-- P/F ratio if FiO2 provided (interpret: >40 normal, 27-40 mild, 13-27 moderate, <13 severe)
-- A-a gradient if on room air
-- Corrected calcium = measured Ca + 0.02 × (40 - albumin), using assumed albumin if needed
+"additionalCalculations": String with P/F ratio if FiO2 provided, A-a gradient if room air, corrected calcium if applicable.
 
-"differentials":
-- Comprehensive list based on pattern
-- **Bold** most likely diagnosis
-- Include emergency conditions`;
+"differentials": String with comprehensive differential list. **Bold** the most likely diagnosis.`;
 
         // Build the analysis prompt
-        let prompt = `Analyze this blood gas with detailed compensation assessment:\n`;
+        let prompt = `Analyze this blood gas:\n`;
         prompt += `Clinical History: ${clinicalHistory || 'Not provided'}\n`;
         prompt += `Sample Type: ${sampleType || 'Arterial'}\n`;
         prompt += `Values:\n`;
@@ -155,8 +117,8 @@ FORMAT YOUR RESPONSE:
             }
         }
 
-        // Add specific instruction for compensation
         prompt += `\nIMPORTANT: Calculate and show the expected compensation for the primary disorder. Compare actual vs expected values explicitly.`;
+        prompt += `\nREMEMBER: Return ONLY a JSON object with no markdown formatting or extra text.`;
 
         const requestPayload = {
             contents: [{
@@ -166,13 +128,15 @@ FORMAT YOUR RESPONSE:
                 parts: [{ text: systemPrompt }]
             },
             generationConfig: {
-                temperature: 0.2,  // Lower temperature for more consistent calculations
+                temperature: 0.1,  // Very low temperature for consistent formatting
                 topK: 1,
-                topP: 0.95,
+                topP: 0.8,
                 maxOutputTokens: 4096
             }
         };
 
+        console.log('Sending request to Gemini API...');
+        
         const geminiResponse = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -191,40 +155,70 @@ FORMAT YOUR RESPONSE:
         const data = await geminiResponse.json();
         const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
+        console.log('Raw response from Gemini:', responseText);
+        
         if (!responseText) {
             return {
                 statusCode: 500,
-                body: JSON.stringify({ error: 'No analysis content returned.' })
+                body: JSON.stringify({ error: 'No analysis content returned from AI.' })
             };
         }
 
-        // Extract JSON from response
+        // Extract JSON from response - try multiple approaches
         let extractedJson;
         try {
-            const startIndex = responseText.indexOf('{');
-            const endIndex = responseText.lastIndexOf('}');
-            
-            if (startIndex === -1 || endIndex === -1) {
-                throw new Error('No JSON found in response');
-            }
-            
-            const jsonString = responseText.substring(startIndex, endIndex + 1);
-            extractedJson = JSON.parse(jsonString);
-            
-            // Ensure all required keys exist
-            const requiredKeys = ['keyFindings', 'compensationAnalysis', 'hhAnalysis', 'stewartAnalysis', 'additionalCalculations', 'differentials'];
-            for (const key of requiredKeys) {
-                if (!extractedJson[key]) {
-                    extractedJson[key] = 'Analysis not performed.';
+            // First, try to parse the entire response as JSON
+            extractedJson = JSON.parse(responseText.trim());
+        } catch (e1) {
+            try {
+                // Remove any markdown code blocks
+                let cleanedText = responseText
+                    .replace(/```json\s*/gi, '')
+                    .replace(/```\s*/g, '')
+                    .trim();
+                
+                // Try to find JSON object boundaries
+                const startIndex = cleanedText.indexOf('{');
+                const endIndex = cleanedText.lastIndexOf('}');
+                
+                if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                    const jsonString = cleanedText.substring(startIndex, endIndex + 1);
+                    extractedJson = JSON.parse(jsonString);
+                } else {
+                    throw new Error('No valid JSON structure found');
                 }
+            } catch (e2) {
+                console.error('Failed to parse JSON:', e2);
+                console.error('Response was:', responseText);
+                
+                // As a last resort, create a structured response from the text
+                return {
+                    statusCode: 200,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
+                    body: JSON.stringify({
+                        keyFindings: "Analysis completed but formatting error occurred. Please retry.",
+                        compensationAnalysis: responseText || "Unable to parse compensation analysis.",
+                        hhAnalysis: "Unable to parse Henderson-Hasselbalch analysis.",
+                        stewartAnalysis: "Unable to parse Stewart analysis.",
+                        additionalCalculations: "Unable to parse additional calculations.",
+                        differentials: "Unable to parse differential diagnoses."
+                    })
+                };
             }
-        } catch (parseError) {
-            console.error('JSON parsing error:', parseError, 'Response:', responseText);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: 'Failed to parse analysis results.' })
-            };
         }
+        
+        // Ensure all required keys exist with default values if missing
+        const requiredKeys = ['keyFindings', 'compensationAnalysis', 'hhAnalysis', 'stewartAnalysis', 'additionalCalculations', 'differentials'];
+        for (const key of requiredKeys) {
+            if (!extractedJson[key] || extractedJson[key] === null || extractedJson[key] === undefined) {
+                extractedJson[key] = 'Not performed for this analysis.';
+            }
+        }
+
+        console.log('Successfully parsed JSON response');
 
         return {
             statusCode: 200,
@@ -239,7 +233,7 @@ FORMAT YOUR RESPONSE:
         console.error('Analysis function error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'An unexpected error occurred during analysis.' })
+            body: JSON.stringify({ error: 'An unexpected error occurred during analysis: ' + error.message })
         };
     }
 };
