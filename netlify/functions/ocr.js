@@ -65,4 +65,76 @@ Rules:
     }
 
     // Ensure keys exist
-    const keys
+    const keys = ["ph","pco2","po2","hco3","sodium","potassium","chloride","albumin","lactate","glucose","calcium","hb","be"];
+    for (const k of keys) if (!(k in extractedJson)) extractedJson[k] = null;
+
+    // Clean numeric strings like "24.1 (+)" -> 24.1
+    const toNum = (v) => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === "number") return isFinite(v) ? v : null;
+      if (typeof v === "string") {
+        const cleaned = v.replace(/[^0-9.+-]/g, "");
+        const num = parseFloat(cleaned);
+        return Number.isFinite(num) ? num : null;
+      }
+      return null;
+    };
+
+    // Wide physiological bounds (kPa where applicable)
+    const bounds = {
+      ph: [6.0, 8.0],
+      pco2: [0.5, 30],     // kPa
+      po2: [0.5, 100],     // kPa
+      hco3: [2, 60],
+      sodium: [80, 200],
+      potassium: [1, 12],
+      chloride: [50, 150],
+      albumin: [10, 70],
+      lactate: [0, 30],
+      glucose: [0, 80],
+      calcium: [0.2, 5],
+      hb: [30, 250],
+      be: [-50, 50]
+    };
+
+    // Build output { value, error, warning }
+    const out = {};
+    for (const k of keys) {
+      const num = toNum(extractedJson[k]);
+      const [min, max] = bounds[k] ?? [-Infinity, Infinity];
+      if (num === null) {
+        out[k] = { value: null, error: "Value missing or unreadable.", warning: null };
+      } else if (num < min || num > max) {
+        out[k] = { value: null, error: `Value ${num} outside physiological range (${min}–${max}).`, warning: null };
+      } else {
+        out[k] = { value: num, error: null, warning: null };
+      }
+    }
+
+    // 🔧 Auto-correct the classic "divided by 7.5" error for gases
+    const tryCorrect = (key, lowThresh, physMin, physMax) => {
+      const item = out[key];
+      if (!item || item.value == null) return;
+      const v = item.value;
+      if (v < lowThresh) {
+        const corrected = +(v * 7.5).toFixed(3);
+        if (corrected >= physMin && corrected <= physMax) {
+          item.value = corrected;
+          item.warning = `Auto-corrected ${key.toUpperCase()} (value looked divided by 7.5; multiplied to restore kPa).`;
+        }
+      }
+    };
+
+    tryCorrect("pco2", 2.5, 0.5, 30);  // if <2.5 kPa, treat as likely divided by 7.5
+    tryCorrect("po2", 3.0, 0.5, 100);  // if <3 kPa, treat as likely divided by 7.5
+
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+      body: JSON.stringify(out)
+    };
+  } catch (err) {
+    console.error("OCR function error:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: "Internal server error", details: err.message }) };
+  }
+}
