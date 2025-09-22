@@ -25,51 +25,47 @@ exports.handler = async (event) => {
             };
         }
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
 
-        const systemPrompt = `You are an expert clinical biochemist and intensivist providing a detailed, registrar-level blood gas analysis for an emergency medicine doctor in the UK.
+        // UPGRADED PROMPT FOR CONSULTANT-LEVEL JOINT EM/ICU ANALYSIS
+        const systemPrompt = `You are a consultant-level clinical decision support tool. Your entire analysis must reflect a joint consensus between a senior UK-based Intensive Care consultant and a senior UK-based Emergency Medicine consultant, providing a synthesis of both perspectives. Your response must be a single, valid JSON object. For each key, provide a detailed, well-structured markdown string.
 
-CRITICAL: Your ENTIRE response must be ONLY a valid JSON object, starting with { and ending with }. Do not include markdown formatting or any other text.
+The JSON must have these exact keys: "keyFindings", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials"
 
-The JSON must have these exact keys: "keyFindings", "compensationAnalysis", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
+INSTRUCTIONS FOR EACH KEY'S CONTENT:
 
-FORMATTING RULES:
-- All text values must be strings.
-- Use markdown's double asterisks (e.g., **Metabolic Acidosis**) for emphasis.
+"keyFindings": A concise summary paragraph from a joint EM/ICU perspective. State the primary physiological insults, compensation status, and critical life-threats. You MUST include the top three most likely differential diagnoses.
 
-ANALYSIS INSTRUCTIONS:
+"hhAnalysis": This section must be highly detailed.
+1.  **Main Heading:** "Henderson-Hasselbalch Analysis".
+2.  **List Values:** List pH, pCO₂, and HCO₃⁻ with normal ranges and a brief interpretation.
+3.  **Primary Disorder & Compensation Heading:** Create a bolded sub-heading. State the final diagnosis.
+4.  **Evidence Sections:** For mixed disorders, you MUST include bolded "Evidence for..." sub-headings. Under each, explain the reasoning and show the expected compensation calculation (e.g., Winter's formula) to prove the co-existence of the other disorder.
+5.  **Calculated Values Heading:** Create a bolded sub-heading. Show full calculations for Anion Gap, and state when Albumin-corrected AG or Delta Ratio cannot be reliably calculated, explaining why.
 
-1.  **"keyFindings"**: Provide a concise summary paragraph synthesising the results. It MUST state the primary disorder(s), the status of compensation, any critical values, and finish by explicitly listing the **Top 3 Differential Diagnoses**.
+"stewartAnalysis": This must also be highly detailed.
+1.  **Main Heading:** "Stewart (Physicochemical) Analysis".
+2.  **Calculations:** Show full calculations for SIDa, SIDe, and SIG. State when they cannot be calculated due to missing data.
+3.  **Clinical Interpretation:** If SIG is high, you must provide a paragraph explaining its clinical significance as the primary driver of the metabolic acidosis due to unmeasured anions (ketones, lactate, toxins etc.).
 
-2.  **"compensationAnalysis"**: Perform and show calculations for expected compensation. Crucially, provide a narrative explaining the evidence for your conclusion (e.g., "The observed pCO2 is significantly higher than the expected compensation of 4.5 kPa, confirming a co-existing respiratory acidosis.").
-    * Metabolic Acidosis: Use Winter's formula (Expected pCO2 kPa = (1.5 * HCO3 + 8) / 7.5).
-    * Respiratory Disorders: Assess if compensation is acute or chronic based on HCO3 changes.
+"additionalCalculations":
+1.  **Main Heading:** "Additional Calculations".
+2.  Calculate the P/F Ratio if FiO₂ is provided. Explain why it cannot be calculated for venous samples.
 
-3.  **"hhAnalysis"**: Provide a Henderson-Hasselbalch based analysis.
-    * Calculate the Anion Gap (AG) = (Na+ + K+) - (Cl- + HCO3-). State if it is normal or high.
-    * If albumin is provided, calculate the Corrected AG = AG + 0.25 * (40 - albumin).
-    * If a HAGMA is present, calculate and interpret the Delta Ratio. If it's uninterpretable (e.g., due to normal HCO3), state this and explain why.
-
-4.  **"stewartAnalysis"**: Perform a detailed quantitative analysis using the Stewart approach.
-    * Calculate SIDa (Apparent Strong Ion Difference) = [Na+] + [K+] - [Cl-].
-    * Calculate SIDe (Effective Strong Ion Difference). Use the formula: (1000 * 2.46 * 10^-11 * pCO2 / (10^-pH)) + (albumin * (0.123 * pH - 0.631)) + (1 * (0.309 * pH - 0.469)). Assume phosphate is 1 mmol/L if not given.
-    * Calculate the Strong Ion Gap (SIG) = SIDa - SIDe.
-    * **Provide a full interpretation paragraph**: Explain what the SIG represents clinically. A significantly positive SIG (>2) indicates the presence of unmeasured anions (e.g., ketones, lactate, salicylates, toxins) and is the primary driver of the acidosis. A SIG near zero in the presence of a HAGMA suggests hypoalbuminaemia is a major contributor.
-
-5.  **"additionalCalculations"**:
-    * If FiO2 is provided, calculate and interpret the P/F ratio (PaO2 in kPa / FiO2 as a decimal).
-    * If albumin is provided, calculate the corrected calcium.
-
-6.  **"differentials"**: Provide a comprehensive, structured list of potential causes for each acid-base abnormality identified. For each major differential, suggest the **"Next critical step:"** (e.g., "Check serum ketones"). The most likely overall diagnosis should be in **bold**.`;
-
-        // First, build the part of the prompt with the patient's data
-        let patientDataPrompt = `Clinical History: ${clinicalHistory || 'Not provided'}\n`;
-        patientDataPrompt += `Sample Type: ${sampleType || 'Arterial'}\n`;
-        patientDataPrompt += `Values:\n`;
-
+"differentials": This section must be structured like a joint EM/ICU management plan.
+1.  **Main Heading:** "Potential Differential Diagnoses & Management Plan".
+2.  For each significant abnormality (e.g., "High Anion Gap Metabolic Acidosis (HAGMA)"), create a bolded sub-heading.
+3.  Under each sub-heading, list the potential causes with a brief rationale.
+4.  Crucially, for each cause, you MUST include two distinct, actionable lines:
+    * \`Immediate ED Actions:\` outlining critical next steps for resuscitation and investigation in the ED.
+    * \`Anticipated ICU Plan:\` outlining potential next-level supportive care, monitoring, and treatment over the next 24-48 hours.`;
+        
+        const patientDataPrompt = `Clinical History: ${clinicalHistory || 'Not provided'}\nSample Type: ${sampleType || 'Arterial'}\nValues:\n`;
+        let valuesForPrompt = '';
+        
         const analysisValues = { ...values };
-        if (!analysisValues.albumin || isNaN(analysisValues.albumin)) {
-            analysisValues.albumin = 42.5; // Assume normal if not provided
+        if (analysisValues.albumin === null || isNaN(analysisValues.albumin)) {
+            analysisValues.albumin = 40; // Assume normal if not provided
         }
 
         const valueMapping = {
@@ -80,38 +76,28 @@ ANALYSIS INSTRUCTIONS:
         };
 
         for (const [key, label] of Object.entries(valueMapping)) {
-            if (analysisValues[key] !== null && analysisValues[key] !== undefined && !isNaN(analysisValues[key])) {
+            if (values[key] !== null && values[key] !== undefined && !isNaN(values[key])) {
                 if (key === 'albumin' && !values.albumin) {
-                    patientDataPrompt += `- ${label}: ${analysisValues[key]} (assumed normal)\n`;
+                    valuesForPrompt += `- ${label}: ${analysisValues[key]} (assumed normal)\n`;
                 } else {
-                    patientDataPrompt += `- ${label}: ${analysisValues[key]}\n`;
+                    valuesForPrompt += `- ${label}: ${values[key]}\n`;
                 }
             }
         }
 
-        // Now, combine the system instructions and patient data into one prompt
-        const combinedPrompt = `${systemPrompt}
+        const combinedPrompt = `${systemPrompt}\n\n---\n\nBased on the rules above, please analyze the following blood gas:\n${patientDataPrompt}${valuesForPrompt}`;
 
----
-
-Based on the rules and instructions above, please analyze the following blood gas:
-${patientDataPrompt}`;
-
-        // Create the simplified request payload without the 'systemInstruction' field
         const requestPayload = {
-            contents: [{
-                parts: [{ text: combinedPrompt }]
-            }],
+            contents: [{ parts: [{ text: combinedPrompt }] }],
             generationConfig: {
-                temperature: 0.2, // Slightly increased for more descriptive text
+                temperature: 0.1,
                 topK: 1,
                 topP: 0.8,
-                maxOutputTokens: 8192 // Increased to allow for more detailed responses
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json",
             }
         };
 
-        console.log('Sending request to Gemini API...');
-        
         const geminiResponse = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -121,95 +107,40 @@ ${patientDataPrompt}`;
         if (!geminiResponse.ok) {
             const errorText = await geminiResponse.text();
             console.error('Gemini API error:', errorText);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: 'Analysis failed. Please try again.' })
-            };
+            return { statusCode: 500, body: JSON.stringify({ error: 'Analysis failed. Please try again.' }) };
         }
 
         const data = await geminiResponse.json();
         const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
-        console.log('Raw response from Gemini:', responseText);
-        
         if (!responseText) {
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: 'No analysis content returned from AI.' })
-            };
+            return { statusCode: 500, body: JSON.stringify({ error: 'No analysis content returned from AI.' }) };
         }
 
-        // Extract JSON from response - try multiple approaches
         let extractedJson;
         try {
-            // First, try to parse the entire response as JSON
             extractedJson = JSON.parse(responseText.trim());
-        } catch (e1) {
-            try {
-                // Remove any markdown code blocks
-                let cleanedText = responseText
-                    .replace(/```json\s*/gi, '')
-                    .replace(/```\s*/g, '')
-                    .trim();
-                
-                // Try to find JSON object boundaries
-                const startIndex = cleanedText.indexOf('{');
-                const endIndex = cleanedText.lastIndexOf('}');
-                
-                if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-                    const jsonString = cleanedText.substring(startIndex, endIndex + 1);
-                    extractedJson = JSON.parse(jsonString);
-                } else {
-                    throw new Error('No valid JSON structure found');
-                }
-            } catch (e2) {
-                console.error('Failed to parse JSON:', e2);
-                console.error('Response was:', responseText);
-                
-                // As a last resort, create a structured response from the text
-                return {
-                    statusCode: 200,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Cache-Control': 'no-cache'
-                    },
-                    body: JSON.stringify({
-                        keyFindings: "Analysis completed but formatting error occurred. Please retry.",
-                        compensationAnalysis: responseText || "Unable to parse compensation analysis.",
-                        hhAnalysis: "Unable to parse Henderson-Hasselbalch analysis.",
-                        stewartAnalysis: "Unable to parse Stewart analysis.",
-                        additionalCalculations: "Unable to parse additional calculations.",
-                        differentials: "Unable to parse differential diagnoses."
-                    })
-                };
-            }
+        } catch (e) {
+            console.error('Failed to parse JSON:', e, 'Response was:', responseText);
+            return { statusCode: 500, body: JSON.stringify({ error: 'Failed to parse analysis results.' }) };
         }
         
-        // Ensure all required keys exist with default values if missing
-        const requiredKeys = ['keyFindings', 'compensationAnalysis', 'hhAnalysis', 'stewartAnalysis', 'additionalCalculations', 'differentials'];
+        const requiredKeys = ['keyFindings', 'hhAnalysis', 'stewartAnalysis', 'additionalCalculations', 'differentials'];
         for (const key of requiredKeys) {
-            if (!extractedJson[key] || extractedJson[key] === null || extractedJson[key] === undefined) {
+            if (!extractedJson[key]) {
                 extractedJson[key] = 'Not performed for this analysis.';
             }
         }
 
-        console.log('Successfully parsed JSON response');
-
         return {
             statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache'  // Prevent caching of medical data
-            },
+            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
             body: JSON.stringify(extractedJson)
         };
 
     } catch (error) {
         console.error('Analysis function error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'An unexpected error occurred during analysis: ' + error.message })
-        };
+        return { statusCode: 500, body: JSON.stringify({ error: 'An unexpected error occurred during analysis: ' + error.message }) };
     }
 };
 
