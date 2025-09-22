@@ -1,5 +1,5 @@
 // netlify/functions/ocr.js
-// OCR + parsing using Gemini Flash/Flash-2-Exp with strict rules.
+// OCR + parsing using Gemini 2.5 Flash with strict JSON rules
 
 export async function handler(event) {
   if (event.httpMethod !== "POST") {
@@ -13,18 +13,20 @@ export async function handler(event) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return serverError("GEMINI_API_KEY not configured.");
 
-    // --- 1) OCR prompt for Gemini ---
     const ocrPrompt = `
-You are an OCR engine for blood gas printouts.
+You are an OCR engine for blood gas (ABG/VBG) printouts.
+
+Your ONLY task is to extract **measured values** into JSON.
 
 Rules:
-1. Only return measured values, not reference ranges in brackets [ ].
-2. pCO₂ and pO₂ are always reported in kPa. Never convert units. Ignore mentions of mmHg.
-3. If a number has flags/symbols (e.g., "+", "#", "*", "↑", "↓", "(+)"), strip them.
-4. Each value must be a plain number like 7.26 or 24.1. No text, no units.
-5. Return JSON with these keys (null if missing):
+1. Return JSON ONLY. No text, no explanation, no markdown.
+2. Use these keys (null if missing): 
    ph, pco2, po2, hco3, sodium, potassium, chloride, albumin, lactate, glucose, calcium, hb, be
-6. Output valid JSON only. No prose.
+3. pCO₂ and pO₂ are ALWAYS reported in kPa. Ignore any mention of mmHg or %.
+4. Ignore reference ranges (values in [ ] or parentheses that are not the measured result).
+5. Strip all symbols: +, -, #, *, ↑, ↓, ( ), (+), etc.
+6. Each value must be a plain number (e.g. 7.26, 24.1). No units.
+7. If the result is unreadable, return null for that key.
 `;
 
     const requestPayload = {
@@ -37,12 +39,16 @@ Rules:
           ]
         }
       ],
-      // flash-2-exp is newer/more robust; fallback to 1.5-flash if needed
-      generationConfig: { temperature: 0, topK: 1, topP: 0.95, maxOutputTokens: 1024 }
+      generationConfig: {
+        temperature: 0,
+        topK: 1,
+        topP: 0.95,
+        maxOutputTokens: 1024
+      }
     };
 
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -59,7 +65,6 @@ Rules:
     const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!rawText) return serverError("No text output from Gemini.");
 
-    // --- 2) Parse JSON output safely ---
     let parsed;
     try {
       parsed = JSON.parse(rawText);
@@ -68,13 +73,13 @@ Rules:
       parsed = JSON.parse(cleaned);
     }
 
-    // --- 3) Clean + bound check ---
     const keys = [
       "ph","pco2","po2","hco3","sodium","potassium","chloride",
       "albumin","lactate","glucose","calcium","hb","be"
     ];
     for (const k of keys) if (!(k in parsed)) parsed[k] = null;
 
+    // cleanup + bounds checking
     const toNum = (v) => {
       if (v == null) return null;
       if (typeof v === "number") return Number.isFinite(v) ? v : null;
@@ -115,7 +120,7 @@ Rules:
       }
     }
 
-    // --- 4) Auto-fix the 7.5 bug if gases too small ---
+    // auto-fix ÷7.5 bug for gases
     const fixDivide7_5 = (key, threshold, physRange) => {
       const item = out[key];
       if (item?.value != null && item.value < threshold) {
@@ -138,7 +143,6 @@ Rules:
 }
 
 /* ---------------- helpers ---------------- */
-
 const ok = (body) => ({
   statusCode: 200,
   headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
