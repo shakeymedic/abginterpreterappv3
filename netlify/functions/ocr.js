@@ -96,24 +96,38 @@ RULES:
 
         // Extract JSON from response
         let extractedJson;
-        try {
-            // Try to find JSON object in the response
-            const startIndex = responseText.indexOf('{');
-            const endIndex = responseText.lastIndexOf('}');
-            
-            if (startIndex === -1 || endIndex === -1) {
-                throw new Error('No JSON found in response');
-            }
-            
-            const jsonString = responseText.substring(startIndex, endIndex + 1);
+try {
+    // First, try to parse the entire response as JSON
+    extractedJson = JSON.parse(responseText.trim());
+} catch (e1) {
+    try {
+        // If that fails, remove any markdown code blocks
+        let cleanedText = responseText
+            .replace(/```json\s*/gi, '')
+            .replace(/```\s*/g, '')
+            .trim();
+        
+        // Then try to find the JSON object's boundaries
+        const startIndex = cleanedText.indexOf('{');
+        const endIndex = cleanedText.lastIndexOf('}');
+        
+        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+            const jsonString = cleanedText.substring(startIndex, endIndex + 1);
             extractedJson = JSON.parse(jsonString);
-        } catch (parseError) {
-            console.error('JSON parsing error:', parseError, 'Response:', responseText);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: 'Failed to parse OCR results.' })
-            };
+        } else {
+            // If no valid JSON is found, throw an error
+            throw new Error('No valid JSON structure found in OCR response');
         }
+    } catch (e2) {
+        // If it still fails, log the error and return a failure response
+        console.error('Failed to parse JSON from OCR:', e2);
+        console.error('OCR Response was:', responseText);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to parse OCR results.' })
+        };
+    }
+}
 
         return {
             statusCode: 200,
