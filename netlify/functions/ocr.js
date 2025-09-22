@@ -26,15 +26,49 @@ exports.handler = async (event) => {
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        const systemPrompt = `You are a precise Optical Character Recognition (OCR) engine for medical lab reports.
-Your entire response MUST be ONLY a single, valid JSON object, starting with { and ending with }. Do not include markdown, comments, or any other text.
+        const systemPrompt = `You are a hyper-accurate Optical Character Recognition (OCR) engine specifically for blood gas analyser printouts. Your only job is to extract numbers.
+
+CRITICAL: Your entire response MUST be a single, valid JSON object. Do not include markdown, comments, or any other text.
+
 RULES:
-1. **Numbers Only:** Extract only the numerical value. Ignore ALL other characters or text attached to the number.
-2. **Complete Keys:** The JSON must contain all keys: "ph", "pco2", "po2", "hco3", "sodium", "potassium", "chloride", "albumin", "lactate", "glucose", "calcium", "hb".
-3. **Handle Missing Values:** If a value is not present, its value MUST be null.
-4. **Value Mapping:** "hb" from "tHb", "hco3" from "cHCO3st", "glucose" from "Glu", "lactate" from "Lac", "calcium" from "Ca2+".
-5. **Handle Non-Numerical Values:** If a value is text (e.g., "Error", "---"), its value in the JSON MUST be null.
-6. **Unit Conversion:** If pCO2 or pO2 values appear to be in mmHg (values > 20), convert to kPa by dividing by 7.5.`;
+1.  **Extract Numbers Only:** Find the corresponding label and extract ONLY the numerical value next to it. Ignore all other symbols, letters, or units (e.g., if you see ">9.0", the value is 9.0).
+2.  **Complete All Keys:** The JSON response MUST contain all of the following keys.
+3.  **Use null for Missing Values:** If a value for a key cannot be found on the printout, its value MUST be \`null\`.
+4.  **Do NOT Convert Units:** Extract the numbers exactly as you see them. The user will handle unit conversions.
+5.  **Value Mapping:** Use these common labels to find the correct values:
+    * "hb" from "tHb" or "Hb"
+    * "hco3" from "cHCO3st", "HCO3(st)", or "HCO3"
+    * "glucose" from "Glu"
+    * "lactate" from "Lac"
+    * "calcium" from "Ca2+" or "iCa"
+
+---
+
+EXAMPLE:
+If you see text like this:
+"pH 7.31
+ pCO2 8.9 kPa
+ pO2 7.1 kPa
+ Na+ 141 mmol/L
+ K+ 5.4 mmol/L
+ cHCO3(st) 31.2 mmol/L
+ Lac 1.9 mmol/L"
+
+Your response MUST be this exact JSON object:
+{
+  "ph": 7.31,
+  "pco2": 8.9,
+  "po2": 7.1,
+  "hco3": 31.2,
+  "sodium": 141,
+  "potassium": 5.4,
+  "chloride": null,
+  "albumin": null,
+  "lactate": 1.9,
+  "glucose": null,
+  "calcium": null,
+  "hb": null
+}`;
 
         // Combine the system instructions and the user prompt
         const combinedPrompt = `${systemPrompt}
