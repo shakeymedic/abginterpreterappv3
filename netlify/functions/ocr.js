@@ -46,28 +46,34 @@ RULES:
 
         const userPrompt = `Extract the blood gas values from this image and return them as a clean JSON object of numbers.`;
 
-        const requestPayload = {
-            contents: [{
-                parts: [
-                    { text: userPrompt },
-                    { 
-                        inlineData: { 
-                            mimeType: "image/jpeg", 
-                            data: image 
-                        }
-                    }
-                ]
-            }],
-            systemInstruction: {
-                parts: [{ text: systemPrompt }]
-            },
-            generationConfig: {
-                temperature: 0.1,
-                topK: 1,
-                topP: 0.95,
-                maxOutputTokens: 2048
+        const combinedPrompt = `${systemPrompt}
+
+---
+
+Based on the rules and instructions above, please extract the values from the following image.`;
+
+// Create the simplified request payload
+const requestPayload = {
+    contents: [{
+        // For multimodal input, the parts array contains both the text and the image
+        parts: [
+            { text: combinedPrompt },
+            { 
+                inlineData: { 
+                    mimeType: "image/jpeg", 
+                    data: image 
+                }
             }
-        };
+        ]
+    }],
+    // The systemInstruction field is now removed
+    generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.95,
+        maxOutputTokens: 2048
+    }
+};
 
         const geminiResponse = await fetch(apiUrl, {
             method: 'POST',
