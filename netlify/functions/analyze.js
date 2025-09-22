@@ -25,7 +25,7 @@ exports.handler = async (event) => {
             };
         }
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-001:generateContent?key=${apiKey}`;
 
         const systemPrompt = `You are an expert clinical biochemist interpreting blood gas results with emphasis on compensation analysis.
 
