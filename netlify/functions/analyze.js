@@ -31,11 +31,23 @@ exports.handler = async (event) => {
 Your entire response MUST be ONLY a single, valid JSON object. Do not include markdown, comments, or any other text.
 The JSON must have these exact keys: "keyFindings", "compensationAnalysis", "hhAnalysis", "stewartAnalysis", "additionalCalculations", "differentials".
 
+**RULES FOR JSON VALUES:**
+**1. FINAL VALUES ONLY: All numerical values in the JSON MUST be the final, calculated number. DO NOT include mathematical expressions (e.g., "126 + 2.93 - 86.6"). Provide only the result (e.g., 42.33).**
+**2. ALL STRINGS MUST BE QUOTED: Every string value must be enclosed in double quotes.**
+
 CRITICAL VALUES:
 Flag if pH < 7.2 or > 7.6, pCO2 < 2.0 or > 9.0 kPa, K+ < 2.5 or > 6.5, lactate > 4.0
 
 COMPENSATION ANALYSIS REQUIREMENTS:
-You MUST calculate and report expected compensation for all acid-base disorders:
+You MUST calculate and report expected compensation for all acid-base disorders...
+// ... (the rest of your prompt remains the same) ...
+
+"differentials":
+- Comprehensive list based on pattern
+- **Bold** most likely diagnosis
+- Include emergency conditions
+
+**Your final output must start with { and end with } and contain nothing else.**`;
 
 1. METABOLIC ACIDOSIS:
    - Expected pCO2 = 1.5 × [HCO3] + 8 (±2) - Winter's formula
