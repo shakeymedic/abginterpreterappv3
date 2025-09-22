@@ -28,26 +28,33 @@ export async function handler(event) {
 
     // Default values if missing
     const albumin = values.albumin ?? 42.5; // g/L
-    const be = values.be ?? 0; // mmol/L
+    const be = values.be ?? 0;              // mmol/L
+
+    // ✅ Always interpret gases as kPa
+    const ph = values.ph;
+    const pco2 = values.pco2;   // already kPa
+    const po2 = values.po2 ?? null; // already kPa
 
     // Build structured prompt
     const combinedPrompt = `
 You are a consultant in emergency medicine and critical care. Interpret the following blood gas with detailed calculations.
 
+⚠️ Important: pCO₂ and pO₂ values are always provided in kPa. Do NOT convert them. Use the values exactly as given.
+
 Patient Data (all units standard):
-- pH: ${values.ph}
-- pCO₂: ${values.pco2} kPa
-- pO₂: ${values.po2 ?? "not provided"}
-- HCO₃⁻: ${values.hco3 ?? "not provided"}
-- Base Excess (BE): ${be}
-- Na⁺: ${values.sodium ?? "not provided"}
-- K⁺: ${values.potassium ?? "not provided"}
-- Cl⁻: ${values.chloride ?? "not provided"}
-- Lactate: ${values.lactate ?? "not provided"}
+- pH: ${ph}
+- pCO₂: ${pco2} kPa
+- pO₂: ${po2 !== null ? po2 + " kPa" : "not provided"}
+- HCO₃⁻: ${values.hco3 ?? "not provided"} mmol/L
+- Base Excess (BE): ${be} mmol/L
+- Na⁺: ${values.sodium ?? "not provided"} mmol/L
+- K⁺: ${values.potassium ?? "not provided"} mmol/L
+- Cl⁻: ${values.chloride ?? "not provided"} mmol/L
+- Lactate: ${values.lactate ?? "not provided"} mmol/L
 - Albumin: ${albumin} g/L (assumed normal if not provided)
-- Glucose: ${values.glucose ?? "not provided"}
-- Calcium: ${values.calcium ?? "not provided"}
-- Hb: ${values.hb ?? "not provided"}
+- Glucose: ${values.glucose ?? "not provided"} mmol/L
+- Calcium: ${values.calcium ?? "not provided"} mmol/L
+- Hb: ${values.hb ?? "not provided"} g/L
 - Sample type: ${sampleType ?? "not specified"}
 - Clinical context: ${clinicalHistory ?? "not provided"}
 
@@ -124,12 +131,10 @@ Each value must be a multi-line Markdown string with explanations, not a single 
     try {
       parsed = JSON.parse(rawText);
     } catch (err) {
-      // Remove code fences if present
       const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "");
       try {
         parsed = JSON.parse(cleaned);
       } catch (e) {
-        // Last resort fallback
         parsed = {
           keyFindings: "Unable to parse model output.\n\n" + rawText,
           compensationAnalysis: "",
