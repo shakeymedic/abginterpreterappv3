@@ -42,144 +42,253 @@ exports.handler = async (event) => {
             };
         }
 
-        // Use Gemini 2.5 Flash
+        // Use Gemini 2.5 Flash (v1beta endpoint)
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-        const systemPrompt = `You are a consultant clinical biochemist providing expert blood gas interpretation.
+        // ENHANCED SYSTEM PROMPT - Matching clinical detail level
+        const systemPrompt = `You are a consultant clinical biochemist providing comprehensive blood gas interpretation.
 
-CRITICAL: Return ONLY a valid JSON object. No markdown, no explanatory text.
-Start with { and end with }
+CRITICAL OUTPUT REQUIREMENTS:
+- Return ONLY a valid JSON object
+- NO markdown formatting, NO code blocks, NO explanatory text outside JSON
+- Start response with { and end with }
+- Provide extremely detailed clinical analysis matching consultant-level depth
 
-Required JSON structure:
+REQUIRED JSON STRUCTURE (ALL keys mandatory):
 {
-  "keyFindings": "string",
-  "compensationAnalysis": "string", 
-  "hhAnalysis": "string",
-  "stewartAnalysis": "string",
-  "additionalCalculations": "string",
-  "differentials": "string"
+  "keyFindings": "string (400-600 words)",
+  "compensationAnalysis": "string (350-500 words)", 
+  "hhAnalysis": "string (detailed structured format)",
+  "stewartAnalysis": "string (detailed structured format)",
+  "additionalCalculations": "string (250-400 words)",
+  "differentials": "string (400-600 words)"
 }
 
-DETAILED ANALYSIS REQUIREMENTS:
+SECTION SPECIFICATIONS:
 
-"keyFindings": Write a comprehensive paragraph:
-- Open with "This patient presents with [disorder description]"
-- State if simple, mixed, or complex disorder
-- If mixed: "comprising a [disorder 1] and a concurrent [disorder 2]"
-- Note critical values (pH <7.2 or >7.6, K+ <2.5 or >6.5, lactate >4)
-- Comment on compensation adequacy
-- Note lactate levels
-- Conclude with likely contributors based on history
+"keyFindings": 
+- Start: "This patient presents with [specific detailed disorder description]"
+- Provide comprehensive pathophysiological explanation of the disorder
+- Discuss clinical severity and immediate risk stratification
+- Integrate all abnormal values with detailed clinical significance
+- Include compensation mechanisms and their physiological basis
+- Correlate findings with clinical history and presentation
+- Discuss potential complications and monitoring requirements
+- Address any diagnostic uncertainties or conflicting findings
+- Include prognostic indicators and timeframe considerations
+- Mention any critical interventions that may be needed urgently
+- Word count: 400-600 words
 
-"compensationAnalysis": Must include:
-- "This is a [type] disorder: [description]"
-- List evidence for each disorder component
-- For metabolic acidosis, calculate Winter's formula:
-  "Expected pCO2 = 1.5 × [HCO3] + 8 ± 2 = [calculation] mmHg"
-  Compare to actual pCO2
-- For respiratory disorders, assess acute vs chronic:
-  Acute respiratory acidosis: HCO3 rises 1 per 1.33 kPa pCO2 increase
-  Chronic: HCO3 rises 4 per 1.33 kPa pCO2 increase
-- State compensation adequacy clearly
+"compensationAnalysis":
+- Provide detailed assessment of primary vs secondary disorders with mechanistic explanations
+- Include comprehensive calculation explanations with physiological rationale:
+  * For metabolic acidosis: Full Winter's formula with expected timeframes and limitations
+  * For respiratory disorders: Acute vs chronic compensation with cellular mechanisms
+  * Mixed disorders: Evidence for each component with quantitative analysis
+- Explain the detailed physiological basis for compensation mechanisms
+- Assess adequacy, timing, and sustainability of compensation responses
+- Discuss respiratory muscle fatigue risk and ventilatory limitations
+- Include renal compensation assessment where applicable
+- Address any compensation failures or inappropriate responses
+- Provide clinical implications of compensation patterns
+- Word count: 350-500 words
 
-"hhAnalysis": Format as:
+"hhAnalysis":
+Use this comprehensive format:
 "Henderson-Hasselbalch Analysis
-pH: [value] (7.35-7.45) - [Status]
-pCO2: [value] mmHg ([kPa] kPa or 35-45 mmHg) - [Interpretation]
-HCO3-: [value] mmol/L (22-26 mmol/L) - [Interpretation]
-${values.be !== null && values.be !== undefined ? "Base Excess: [value] mmol/L (-2 to +2 mmol/L) - [Interpretation]" : ""}
+pH: [value] (7.35-7.45) - [Detailed status with severity and clinical implications]
+pCO2: [value] kPa ([mmHg] mmHg) (4.7-6.0 kPa or 35-45 mmHg) - [Detailed interpretation with physiological context]
+HCO3-: [value] mmol/L (22-26 mmol/L) - [Detailed status with metabolic implications]
+Base Excess: [value] mmol/L (-2 to +2 mmol/L) - [Detailed interpretation with buffer system analysis]
+
+Primary Disorder Assessment:
+[Comprehensive analysis of primary disorder with mechanistic explanation]
+[Detailed discussion of acid-base chemistry and buffer systems involved]
+
+Compensation Mechanisms:
+[Detailed respiratory compensation assessment with physiological rationale]
+[Renal compensation discussion where applicable]
+
+Mathematical Verification:
+[pH calculation verification using Henderson-Hasselbalch equation]
+[Discussion of any discrepancies and their clinical significance]
 
 Calculated Values:
-Anion Gap (AG) = [Na+] - ([Cl-] + [HCO3-]) = [calculation] = [result] (8-12 mmol/L)
-Albumin-corrected AG: [If albumin provided] = AG + 2.5 × (40 - albumin)/10 = [result]
-[Or state: Using assumed albumin of 42.5 g/L]
-Delta Ratio = (AG - 12) / (24 - HCO3) = [calculation] = [result]
-Interpretation: [<0.4 hyperchloremic, 0.4-0.8 mixed, 0.8-2.0 pure high AG, >2.0 with metabolic alkalosis]"
+Anion Gap (AG) = [Na+] - ([Cl-] + [HCO3-]) = [full calculation] = [result] mmol/L (8-12 mmol/L) - [Detailed interpretation]
+Albumin-corrected AG: [Detailed calculation with albumin effect explanation] = [result] mmol/L - [Clinical significance]
+Delta Ratio = (AG - 12) / (24 - HCO3) = [full calculation] = [result]
+Delta Ratio Clinical Interpretation: [Comprehensive explanation of mixed disorders and diagnostic implications]
 
-"stewartAnalysis": Format as:
-"Stewart (Physicochemical) Analysis
-Strong Ion Difference Apparent (SIDa) = ([Na+] + [K+]) - [Cl-] = [calculation] = [result] mmol/L (38-44)
-[If albumin available: Calculate SIDe and SIG]
-[If not: State albumin assumed at 42.5 g/L for calculations]"
+Buffer System Analysis:
+[Discussion of bicarbonate, phosphate, protein, and hemoglobin buffer contributions]"
+
+"stewartAnalysis":
+Use this comprehensive format:
+"Stewart Physicochemical Analysis
+Strong Ion Difference Apparent (SIDa) = ([Na+] + [K+] + [Ca2+] + [Mg2+]) - ([Cl-] + [lactate] + [other measured anions]) = [full calculation] = [result] mmol/L (38-44 mmol/L)
+Strong Ion Difference Effective (SIDe) = [HCO3-] + [albumin effect] + [phosphate effect] + [other weak acids] = [detailed calculation] = [result] mmol/L
+Strong Ion Gap (SIG) = SIDa - SIDe = [calculation] = [result] mmol/L (normal 0±2)
+
+Mechanistic Interpretation:
+[Detailed explanation of each Stewart parameter and its physiological basis]
+[Discussion of independent variables: SID, Atot (weak acids), and pCO2]
+[Analysis of dependent variables: pH, HCO3-, and their regulation]
+
+Clinical Correlation:
+[How Stewart analysis explains the acid-base disorder mechanistically]
+[Comparison with traditional Henderson-Hasselbalch approach]
+[Identification of primary pathophysiological processes]
+
+Quantitative Assessment:
+[Detailed breakdown of unmeasured anions contributing to SIG]
+[Analysis of albumin and phosphate effects on acid-base balance]
+[Discussion of therapeutic implications based on Stewart parameters]"
 
 "additionalCalculations":
-Include P/F ratio if FiO2 provided
-A-a gradient if on room air
-State if venous sample limits oxygenation assessment
+- Include comprehensive calculation suite based on available data:
+  * P/F ratio calculations with detailed oxygenation assessment and ARDS criteria
+  * A-a gradient calculations with age-adjusted normal values and clinical interpretation
+  * Osmolar gap calculations with detailed toxic alcohol screening implications
+  * Corrected calcium calculations if ionized calcium not available
+  * Bicarbonate deficit calculations for therapeutic planning
+  * Expected compensation calculations with timeframe analysis
+- Provide detailed clinical interpretation for each calculation
+- Discuss limitations and confounding factors for each parameter
+- Include monitoring recommendations and serial measurement importance
+- Address sample type limitations (arterial vs venous) with specific implications
+- Clinical significance assessment for each calculated parameter
+- Integration with overall clinical picture and diagnostic workup
+- Therapeutic implications and target value discussions
+- Word count: 250-400 words
 
-"differentials": Categorized list:
-"Potential Differential Diagnoses
+"differentials":
+Provide consultant-level differential diagnosis with detailed clinical reasoning:
+"Differential Diagnoses
 
-[Primary disorder category]:
-• **[Most likely]** - [Details]
-• [Other causes with clinical correlation]
+PRIMARY ACID-BASE DISORDER:
+• **Most Likely: [primary diagnosis]** - [Comprehensive clinical correlation with supporting evidence, pathophysiology, and expected laboratory pattern]
+• **Alternative 1: [diagnosis]** - [Detailed analysis of supporting vs refuting evidence with clinical reasoning]
+• **Alternative 2: [diagnosis]** - [Thorough discussion of clinical context and diagnostic features]
+• **Additional consideration: [diagnosis]** - [Clinical pearls and distinguishing features]
 
-[Secondary disorders if present]"
+UNDERLYING PATHOPHYSIOLOGICAL MECHANISMS:
+• [Mechanism 1] - [Detailed explanation of how this leads to observed pattern]
+• [Mechanism 2] - [Clinical evidence and expected associated findings]
 
-Use UK reference ranges. Bold critical values with **text**.
-Show ALL calculations step by step.`;
+CONTRIBUTING FACTORS AND COMPLICATIONS:
+• [Factor 1] - [How this modifies the clinical picture and prognosis]
+• [Factor 2] - [Therapeutic implications and monitoring requirements]
 
-        // Build the analysis request
+IMMEDIATE CLINICAL PRIORITIES:
+• [Priority 1] - [Specific actions required with timeframe]
+• [Priority 2] - [Monitoring parameters and frequency]
+
+DIAGNOSTIC WORKUP RECOMMENDATIONS:
+• [Investigation 1] - [Clinical rationale and expected findings]
+• [Investigation 2] - [Diagnostic yield and therapeutic implications]
+
+PROGNOSTIC INDICATORS:
+• [Indicator 1] - [Clinical significance and outcome correlation]
+• [Indicator 2] - [Risk stratification and monitoring needs]"
+Word count: 400-600 words
+
+CLINICAL DEPTH REQUIREMENTS:
+- Provide senior consultant-level clinical reasoning throughout all sections
+- Include detailed pathophysiological explanations with mechanistic insights
+- Show ALL mathematical calculations step by step with clinical rationale
+- Correlate every finding with clinical context and therapeutic implications
+- Use **bold** for all abnormal values with severity grading
+- Include comprehensive severity assessments with prognostic indicators
+- Mention specific timeframes for monitoring and reassessment
+- Provide actionable clinical insights with immediate and long-term management
+- Use UK/European reference ranges with age-appropriate considerations
+- Consider emergency vs routine scenarios with appropriate urgency indicators
+- Include clinical pearls and consultant-level insights throughout
+- Address diagnostic uncertainties with appropriate hedging and alternative considerations`;
+
+        // Build the analysis request with better structure
         const analysisValues = { ...values };
         
         // Assume normal albumin if not provided
         if (!analysisValues.albumin || isNaN(analysisValues.albumin)) {
-            analysisValues.albumin = 42.5;
+            analysisValues.albumin = 40;
         }
 
-        // Convert to mmHg for display
+        // Convert units and build structured prompt
         const pco2_mmHg = (analysisValues.pco2 * 7.5).toFixed(1);
         const po2_mmHg = analysisValues.po2 ? (analysisValues.po2 * 7.5).toFixed(1) : null;
         
-        let prompt = `Analyze this blood gas comprehensively:
+        let prompt = `BLOOD GAS ANALYSIS REQUEST
 
-Clinical History: ${clinicalHistory || 'Not provided'}
-Sample Type: ${sampleType || 'Arterial'}
+CLINICAL CONTEXT:
+History: ${clinicalHistory || 'Not provided'}
+Sample: ${sampleType || 'Arterial'}
 
-Values:
+LABORATORY VALUES:`;
+
+        // Essential values
+        prompt += `
+Primary Gas Exchange:
 • pH: ${analysisValues.ph}
 • pCO2: ${analysisValues.pco2} kPa (${pco2_mmHg} mmHg)`;
-
-        if (analysisValues.po2 !== null && analysisValues.po2 !== undefined) {
-            prompt += `\n• pO2: ${analysisValues.po2} kPa (${po2_mmHg} mmHg)`;
+        
+        if (analysisValues.po2) {
+            prompt += `
+• pO2: ${analysisValues.po2} kPa (${po2_mmHg} mmHg)`;
         }
-        if (analysisValues.hco3 !== null && analysisValues.hco3 !== undefined) {
-            prompt += `\n• HCO3-: ${analysisValues.hco3} mmol/L`;
+        
+        if (analysisValues.hco3) {
+            prompt += `
+• HCO3-: ${analysisValues.hco3} mmol/L`;
         }
+        
         if (analysisValues.be !== null && analysisValues.be !== undefined) {
-            prompt += `\n• Base Excess: ${analysisValues.be} mmol/L`;
-        }
-        if (analysisValues.sodium !== null && analysisValues.sodium !== undefined) {
-            prompt += `\n• Na+: ${analysisValues.sodium} mmol/L`;
-        }
-        if (analysisValues.potassium !== null && analysisValues.potassium !== undefined) {
-            prompt += `\n• K+: ${analysisValues.potassium} mmol/L`;
-        }
-        if (analysisValues.chloride !== null && analysisValues.chloride !== undefined) {
-            prompt += `\n• Cl-: ${analysisValues.chloride} mmol/L`;
-        }
-        
-        const albumin_note = values.albumin ? '' : ' (assumed normal)';
-        prompt += `\n• Albumin: ${analysisValues.albumin} g/L${albumin_note}`;
-        
-        if (analysisValues.lactate !== null && analysisValues.lactate !== undefined) {
-            prompt += `\n• Lactate: ${analysisValues.lactate} mmol/L`;
-        }
-        if (analysisValues.glucose !== null && analysisValues.glucose !== undefined) {
-            prompt += `\n• Glucose: ${analysisValues.glucose} mmol/L`;
-        }
-        if (analysisValues.calcium !== null && analysisValues.calcium !== undefined) {
-            prompt += `\n• Ionised Calcium: ${analysisValues.calcium} mmol/L`;
-        }
-        if (analysisValues.hb !== null && analysisValues.hb !== undefined) {
-            prompt += `\n• Hemoglobin: ${analysisValues.hb} g/L`;
-        }
-        if (analysisValues.fio2 !== null && analysisValues.fio2 !== undefined) {
-            prompt += `\n• FiO2: ${analysisValues.fio2}%`;
+            prompt += `
+• Base Excess: ${analysisValues.be} mmol/L`;
         }
 
-        prompt += `\n\nProvide detailed clinical interpretation with all calculations shown.
-Return ONLY the JSON object.`;
+        // Electrolytes
+        if (analysisValues.sodium || analysisValues.potassium || analysisValues.chloride) {
+            prompt += `
+Electrolytes:`;
+            if (analysisValues.sodium) prompt += `
+• Na+: ${analysisValues.sodium} mmol/L`;
+            if (analysisValues.potassium) prompt += `
+• K+: ${analysisValues.potassium} mmol/L`;
+            if (analysisValues.chloride) prompt += `
+• Cl-: ${analysisValues.chloride} mmol/L`;
+        }
+
+        // Additional parameters
+        prompt += `
+Additional:
+• Albumin: ${analysisValues.albumin} g/L${!values.albumin ? ' (assumed)' : ''}`;
+        
+        if (analysisValues.lactate) {
+            prompt += `
+• Lactate: ${analysisValues.lactate} mmol/L`;
+        }
+        if (analysisValues.glucose) {
+            prompt += `
+• Glucose: ${analysisValues.glucose} mmol/L`;
+        }
+        if (analysisValues.calcium) {
+            prompt += `
+• Ca2+: ${analysisValues.calcium} mmol/L`;
+        }
+        if (analysisValues.hb) {
+            prompt += `
+• Hemoglobin: ${analysisValues.hb} g/L`;
+        }
+        if (analysisValues.fio2) {
+            prompt += `
+• FiO2: ${analysisValues.fio2}%`;
+        }
+
+        prompt += `
+
+ANALYSIS REQUIRED:
+Provide comprehensive interpretation following the exact JSON structure specified. Include all calculations and clinical correlation.`;
 
         const requestPayload = {
             contents: [{
@@ -189,15 +298,15 @@ Return ONLY the JSON object.`;
                 parts: [{ text: systemPrompt }]
             },
             generationConfig: {
-                temperature: 0.25,
-                topK: 2,
-                topP: 0.95,
-                maxOutputTokens: 6000,
+                temperature: 0.1,
+                topK: 1,
+                topP: 0.8,
+                maxOutputTokens: 8192,
                 candidateCount: 1
             }
         };
 
-        console.log(`[${new Date().toISOString()}] Sending to Gemini 2.5 Flash for analysis`);
+        console.log(`[${new Date().toISOString()}] Sending comprehensive analysis to Gemini 2.5 Flash (v1beta)`);
         
         const geminiResponse = await fetch(apiUrl, {
             method: 'POST',
@@ -242,63 +351,81 @@ Return ONLY the JSON object.`;
             };
         }
 
-        // Parse JSON response
+        // Enhanced JSON parsing with better error handling
         let extractedJson;
         
         try {
-            extractedJson = JSON.parse(responseText.trim());
-            console.log('Successfully parsed JSON on first attempt');
-        } catch (e1) {
-            console.log('First parse failed, attempting cleanup');
+            // Clean response - remove any markdown or extra text
+            let cleaned = responseText.trim();
             
-            try {
-                let cleaned = responseText;
+            // Remove markdown code blocks
+            cleaned = cleaned.replace(/```json\s*/gi, '');
+            cleaned = cleaned.replace(/```\s*/g, '');
+            
+            // Find JSON boundaries more precisely
+            const firstBrace = cleaned.indexOf('{');
+            const lastBrace = cleaned.lastIndexOf('}');
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                cleaned = cleaned.substring(firstBrace, lastBrace + 1);
                 
-                // Remove markdown
-                cleaned = cleaned.replace(/```json\s*/gi, '');
-                cleaned = cleaned.replace(/```\s*/g, '');
-                
-                // Extract JSON
-                const firstBrace = cleaned.indexOf('{');
-                const lastBrace = cleaned.lastIndexOf('}');
-                
-                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-                }
+                // Additional cleaning for common issues
+                cleaned = cleaned.replace(/,\s*}/g, '}'); // Remove trailing commas
+                cleaned = cleaned.replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
                 
                 extractedJson = JSON.parse(cleaned);
-                console.log('Successfully parsed after cleanup');
+                console.log('JSON parsed successfully');
                 
-            } catch (e2) {
-                console.error('JSON parsing failed:', e2);
-                
-                // Fallback response
-                return {
-                    statusCode: 200,
-                    headers,
-                    body: JSON.stringify({
-                        keyFindings: `Analysis completed. pH ${values.ph}, pCO2 ${values.pco2} kPa. ${values.ph < 7.35 ? "Acidemia present." : values.ph > 7.45 ? "Alkalemia present." : "Normal pH."} Please retry for detailed analysis.`,
-                        compensationAnalysis: "Detailed compensation analysis pending. Please retry.",
-                        hhAnalysis: `pH: ${values.ph}\npCO2: ${values.pco2} kPa\n${values.hco3 ? `HCO3: ${values.hco3} mmol/L` : ''}\n${values.be ? `Base Excess: ${values.be} mmol/L` : ''}`,
-                        stewartAnalysis: "Stewart analysis pending. Please retry.",
-                        additionalCalculations: "Additional calculations pending. Please retry.",
-                        differentials: "Differential diagnoses pending. Please retry."
-                    })
-                };
+            } else {
+                throw new Error('No valid JSON structure found');
             }
+            
+        } catch (parseError) {
+            console.error('JSON parsing failed:', parseError.message);
+            console.error('Response sample:', responseText.substring(0, 500));
+            
+            // Enhanced fallback with basic calculations
+            const anionGap = values.sodium && values.chloride && values.hco3 ? 
+                values.sodium - (values.chloride + values.hco3) : null;
+            
+            const wintersLow = values.hco3 ? (1.5 * values.hco3 + 8 - 2).toFixed(1) : null;
+            const wintersHigh = values.hco3 ? (1.5 * values.hco3 + 8 + 2).toFixed(1) : null;
+            
+            extractedJson = {
+                keyFindings: `Analysis of pH ${values.ph}, pCO2 ${values.pco2} kPa. ${values.ph < 7.35 ? "**Acidemia** present" : values.ph > 7.45 ? "**Alkalemia** present" : "Normal pH"}. ${values.lactate > 4 ? "**Critically elevated lactate**" : ""}. Detailed analysis temporarily unavailable - please retry.`,
+                
+                compensationAnalysis: values.hco3 && wintersLow ? 
+                    `Primary disorder assessment in progress. Winter's formula suggests expected pCO2 ${wintersLow}-${wintersHigh} mmHg vs actual ${(values.pco2 * 7.5).toFixed(1)} mmHg. Please retry for complete compensation analysis.` : 
+                    "Compensation analysis pending - please retry.",
+                
+                hhAnalysis: `Henderson-Hasselbalch Analysis:
+pH: ${values.ph} (7.35-7.45) - ${values.ph < 7.35 ? "**Low**" : values.ph > 7.45 ? "**High**" : "Normal"}
+pCO2: ${values.pco2} kPa (${(values.pco2 * 7.5).toFixed(1)} mmHg) - ${values.pco2 > 6.0 ? "**Elevated**" : values.pco2 < 4.7 ? "**Low**" : "Normal"}
+${values.hco3 ? `HCO3-: ${values.hco3} mmol/L (22-26) - ${values.hco3 > 26 ? "**High**" : values.hco3 < 22 ? "**Low**" : "Normal"}` : ""}
+${values.be ? `Base Excess: ${values.be} mmol/L (-2 to +2) - ${values.be > 2 ? "**Positive**" : values.be < -2 ? "**Negative**" : "Normal"}` : ""}
+${anionGap ? `Anion Gap: ${anionGap} mmol/L (8-12) - ${anionGap > 12 ? "**Elevated**" : "Normal"}` : ""}`,
+                
+                stewartAnalysis: "Stewart analysis pending - please retry for complete physicochemical assessment.",
+                
+                additionalCalculations: values.po2 && values.fio2 ? 
+                    `P/F ratio: ${(values.po2 * 7.5 / (values.fio2/100)).toFixed(0)} (>400 normal). Additional calculations pending.` : 
+                    "Additional calculations pending - please retry.",
+                
+                differentials: `Based on available data: ${values.ph < 7.35 ? "acidosis" : values.ph > 7.45 ? "alkalosis" : "normal pH"} ${values.lactate > 4 ? "with significantly elevated lactate suggesting tissue hypoxia" : ""}. Complete differential diagnosis pending - please retry.`
+            };
         }
         
-        // Validate required keys
+        // Validate and ensure all required keys are present with minimum content
         const requiredKeys = ['keyFindings', 'compensationAnalysis', 'hhAnalysis', 'stewartAnalysis', 'additionalCalculations', 'differentials'];
         
         for (const key of requiredKeys) {
-            if (!extractedJson[key] || typeof extractedJson[key] !== 'string' || extractedJson[key].length < 20) {
-                extractedJson[key] = `${key} analysis pending - please retry if this persists.`;
+            if (!extractedJson[key] || typeof extractedJson[key] !== 'string' || extractedJson[key].length < 30) {
+                extractedJson[key] = `${key.replace(/([A-Z])/g, ' $1').toLowerCase()} analysis pending - please retry if this persists.`;
             }
         }
 
         const executionTime = Date.now() - startTime;
-        console.log(`[${new Date().toISOString()}] Analysis completed in ${executionTime}ms`);
+        console.log(`[${new Date().toISOString()}] Comprehensive analysis completed in ${executionTime}ms using Gemini 2.5 Flash`);
 
         return {
             statusCode: 200,
@@ -314,7 +441,7 @@ Return ONLY the JSON object.`;
             headers,
             body: JSON.stringify({ 
                 error: 'An error occurred during analysis. Please try again.',
-                details: error.message
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
             })
         };
     }
